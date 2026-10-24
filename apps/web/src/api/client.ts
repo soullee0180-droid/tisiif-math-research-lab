@@ -12,7 +12,8 @@ const pendingKeys=new Map<string,string>();
 export class ApiError extends Error {
   constructor(public code:string,message:string,public status:number,public details:Row={}){super(message)}
 }
-export async function initialize(){
+let initializing:Promise<PublicConfig>|undefined;
+export function initialize(){return initializing??=(async()=>{
   const response=await fetch('/api/public/config');
   if(!response.ok)throw new Error('연결 설정을 불러오지 못했습니다.');
   config=(await response.json()).data;
@@ -22,7 +23,7 @@ export async function initialize(){
     });
   }
   return config;
-}
+})().catch(error=>{initializing=undefined;throw error});}
 export async function token(){return (await supabase?.auth.getSession())?.data.session?.access_token}
 export async function api<T=Row>(path:string,body?:unknown,method?:string):Promise<T>{
   const verb=method||(body===undefined?'GET':'POST');

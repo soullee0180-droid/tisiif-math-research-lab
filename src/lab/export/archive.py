@@ -112,12 +112,15 @@ def gather(conn,user,filters,include_source=True,backup=False):
             else:keep=allrows
             data[table]=keep
         papers=data["papers"]
-    assets=many(conn,"select * from lab.assets where workspace_id=%s and status='verified' and kind=any(%s)",(ws,list(ASSET_KINDS)))
+    assets=many(conn,"select * from lab.assets where workspace_id=%s and kind=any(%s)",(ws,list(ASSET_KINDS)))
     if not include_source:assets=[a for a in assets if a["kind"]!="source_pdf"]
     # Include only assets referenced by the selected dataset, unless creating the full research backup.
     if not backup:
         mentioned=canonical(data)
         assets=[a for a in assets if str(a["id"]) in mentioned]
+    if not include_source:
+        for table in ("papers","checkpoint_revisions"):
+            for row in data[table]:row["source_asset_id"]=None
     return data,assets,rows
 
 def write_archive(user,filters,path,include_source=True,external=False,backup=False):
@@ -150,6 +153,9 @@ def write_archive(user,filters,path,include_source=True,external=False,backup=Fa
         add(z,"results.xlsx",excel.getvalue())
         for name,blob in long.items():add(z,name,blob)
         for a in assets:
+            if a["status"]!="verified":
+                manifest["assets"].append({**a,"archive_path":None})
+                continue
             content=store.get(a)
             if digest(content)!=a["sha256"]:raise ValueError("ASSET_HASH_MISMATCH")
             prefix={"source_pdf":"papers","prepared_pdf":"prepared","request_json":"requests",
@@ -171,7 +177,7 @@ def verify_archive(path):
         total=0
         for info in infos:
             name=PurePosixPath(info.filename)
-            if name.is_absolute() or ".." in name.parts or "\\" in info.filename:
+            if name.is_absolute() or ".." in name.parts or "\\" in info.filename or ":" in name.parts[0]:
                 raise ValueError("UNSAFE_ARCHIVE_PATH")
             if (info.external_attr>>16)&0o170000==0o120000:raise ValueError("ARCHIVE_SYMLINK_FORBIDDEN")
             total+=info.file_size
@@ -214,10 +220,12 @@ def restore_archive(path,user):
         for old in asset_rows:
             row=remap({k:v for k,v in old.items() if k!="archive_path"})
             row["object_path"]=str(new_ws)+"/"+row["id"]+"/"+Path(old["original_name"]).name
-            store.put(row["bucket"],row["object_path"],z.read(old["archive_path"]),row["mime_type"])
+            if old.get("archive_path"):
+                store.put(row["bucket"],row["object_path"],z.read(old["archive_path"]),row["mime_type"])
             new_assets.append(row)
         def row_types(row):
             for key,v in list(row.items()):
+                if key in ("depends_on","plan_ids") and isinstance(v,list):row[key]=[UUID(x) for x in v]
                 if isinstance(v,str) and key.endswith(("_at","_date")):
                     try:row[key]=datetime.fromisoformat(v)
                     except ValueError:pass
@@ -235,6 +243,7 @@ def restore_archive(path,user):
             for table in TABLES:
                 for old in data[table]:
                     row=remap(old)
+                    if table=="runs":row["display_seed"]=old["display_seed"]
                     if table=="checkpoint_revisions" and row["status"]=="approved":
                         row["public_input_sha256"]=input_hash(row,new_by.get(row.get("prepared_asset_id")))
                     if table=="plans":

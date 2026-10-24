@@ -34,7 +34,8 @@ def create_app():
     if cfg.app_env=="production" and (cfg.local_storage_dir or cfg.test_auth_secret):
         raise RuntimeError("TEST_FACILITIES_MUST_NOT_BE_ENABLED_IN_PRODUCTION")
     app=FastAPI(title="TISIIF Math Research Lab",version="2.0.0",
-                docs_url=None if cfg.app_env=="production" else "/docs",redoc_url=None)
+                docs_url=None if cfg.app_env=="production" else "/docs",redoc_url=None,
+                openapi_url=None if cfg.app_env=="production" else "/openapi.json")
     app.add_middleware(CORSMiddleware,allow_origins=[cfg.app_origin],
         allow_methods=["GET","POST","PATCH","PUT"],allow_headers=["Authorization","Content-Type","Idempotency-Key"])
     @app.middleware("http")

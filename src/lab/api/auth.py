@@ -16,7 +16,11 @@ def test_identity(token):
     payload, signature = token.rsplit(".", 1)
     expected = hmac.new(cfg.test_auth_secret.encode(), payload.encode(), hashlib.sha256).hexdigest()
     if not hmac.compare_digest(signature, expected): return None
-    data = json.loads(base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)))
+    encoded = payload.rsplit('.', 1)[-1]
+    try:
+        data = json.loads(base64.urlsafe_b64decode(encoded + "=" * (-len(encoded) % 4)))
+    except (ValueError, KeyError):
+        return None
     if data["exp"] < datetime.now(timezone.utc).timestamp(): return None
     return data
 

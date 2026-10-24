@@ -177,6 +177,11 @@ def backup(body:BackupBody,user=Depends(admin_user)):
         audit(conn,user,"backup.request","job",job["id"])
         return {"job_id":job["id"]}
 
+@router.get('/admin/backups')
+def backups(user=Depends(admin_user)):
+    with transaction() as conn:
+        return {'items':many(conn,'select * from lab.backup_runs where workspace_id=%s order by started_at desc limit 50',(user['workspace_id'],))}
+
 @router.post("/admin/restore-preflight")
 def restore_preflight(body:RestoreBody,user=Depends(admin_user)):
     from lab.export.archive import verify_archive

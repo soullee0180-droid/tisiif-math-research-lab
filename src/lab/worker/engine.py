@@ -224,8 +224,8 @@ def process(job,attempt):
             secret=one(conn,'select * from lab_private.provider_secrets where workspace_id=%s and provider=%s',(ws,provider))
         if not secret: raise ProviderFailure('credential_blocked','API 키 설정이 필요합니다.')
         key=decrypt(secret);version=secret['key_version']
+    request_asset=storage.persist(actor,'request_json',canonical(packet).encode(),'request.json','application/json',ident=uuid5(attempt['id'],'request'))
     with transaction() as conn:
-        request_asset=storage.save_asset(conn,actor,'request_json',canonical(packet).encode(),'request.json','application/json')
         response_asset=reserve_response(conn,actor,attempt)
         conn.execute("update lab.attempts set status='dispatching',request_asset_id=%s,request_sha256=%s,sent_at=now(),normalized_settings=normalized_settings||%s where id=%s and workspace_id=%s",
             (request_asset['id'],digest(packet),value({'key_version':version,'display_to_canonical':packet['display_to_canonical']}),attempt['id'],ws))
@@ -238,9 +238,11 @@ def process(job,attempt):
     with transaction() as conn:
         conn.execute("update lab.assets set status='verified',sha256=%s,byte_size=%s,verified_at=now() where workspace_id=%s and id=%s",
                      (digest(body),len(body),ws,response_asset['id']))
-        raw=storage.save_asset(conn,actor,'raw_text',response.text.encode(),'response.txt','text/plain')
-        conn.execute("update lab.attempts set status='response_saved',raw_text_asset_id=%s,returned_model=%s,provider_request_id=%s,usage=%s,received_at=now() where id=%s and workspace_id=%s",
-            (raw['id'],response.model,response.request_id,value(response.usage),attempt['id'],ws))
+        conn.execute("update lab.attempts set status='response_saved',returned_model=%s,provider_request_id=%s,usage=%s,received_at=now() where id=%s and workspace_id=%s",
+            (response.model,response.request_id,value(response.usage),attempt['id'],ws))
+    raw=storage.persist(actor,'raw_text',response.text.encode(),'response.txt','text/plain',ident=uuid5(attempt['id'],'raw-text'))
+    with transaction() as conn:
+        conn.execute('update lab.attempts set raw_text_asset_id=%s where id=%s and workspace_id=%s',(raw['id'],attempt['id'],ws))
     accept(job,attempt,packet,response)
 
 def record_failure(job,attempt,error):
@@ -248,6 +250,11 @@ def record_failure(job,attempt,error):
     with transaction() as conn:
         current=one(conn,'select status from lab.jobs where id=%s and workspace_id=%s',(job['id'],ws))
         if not current or current['status']=='completed': return
+        saved=one(conn,'select status from lab.attempts where id=%s and workspace_id=%s',(attempt['id'],ws)) if attempt else None
+        if saved and saved['status']=='response_saved':
+            conn.execute("update lab.jobs set status='needs_review',error_class='saved_response_processing',error_message='응답은 저장했습니다. 이 단계를 재시도하면 저장 응답을 다시 해석합니다.',lease_owner=null,lease_expires_at=null where id=%s and workspace_id=%s",(job['id'],ws))
+            if job['plan_id']: refresh_progress(conn,ws,job['plan_id'])
+            return
         if isinstance(error,ProviderFailure):
             cls=error.error_class
             state='unknown_remote' if error.remote_uncertain else 'waiting_rate' if cls in ('rate_transient','quota_daily') else 'blocked'

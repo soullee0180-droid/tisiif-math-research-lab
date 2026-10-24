@@ -67,7 +67,7 @@ export function Tabs({items,value,onChange}:{items:string[];value:string;onChang
 export function PageHeading({title,children}:{title:string;children?:ReactNode}){
  return <div className="page-heading"><h1>{title}</h1><div className="actions">{children}</div></div>
 }
-export function Table({columns,rows,onRow}:{columns:{title:string;key?:string;width?:number;render?:(r:Row)=>ReactNode}[];rows:Row[];onRow?:(r:Row)=>void}){
+export function Table({columns,rows,onRow}:{columns:{title:ReactNode;key?:string;width?:number;render?:(r:Row)=>ReactNode}[];rows:Row[];onRow?:(r:Row)=>void}){
  return <div className="table-scroll"><table><thead><tr>{columns.map((c,i)=><th key={i} style={c.width?{width:c.width}:undefined}>{c.title}</th>)}</tr></thead>
  <tbody>{rows.map((r,i)=><tr key={r.id||i} tabIndex={onRow?0:undefined} onClick={()=>onRow?.(r)} onKeyDown={e=>{if(e.key==='Enter'&&e.target===e.currentTarget)onRow?.(r)}}>
  {columns.map((c,j)=><td key={j}>{c.render?c.render(r):String(r[c.key||'']??'—')}</td>)}</tr>)}</tbody></table></div>

@@ -36,7 +36,9 @@ def input_snapshot(revision, prepared=None):
         "prepared_sha256": prepared["sha256"] if prepared else None}
 
 def input_hash(revision, prepared=None):
-    return digest(input_snapshot(revision, prepared))
+    snapshot = input_snapshot(revision, prepared)
+    snapshot.pop('prepared_asset_id')
+    return digest(snapshot)
 
 def schema_for(protocol, phase, k):
     s = copy.deepcopy(protocol["schemas"][phase])
@@ -58,7 +60,7 @@ def assemble(run, phase, judge, frozen, ideas):
     protocol = frozen["protocol"]
     snap = frozen["inputs"][str(run["checkpoint_revision_id"])]
     k = run["candidate_count"]
-    seed = hashlib.sha256((str(run["id"]) + ":" + phase + ":" + (judge or "")).encode()).hexdigest()
+    seed = hashlib.sha256((str(run.get("display_seed") or run["id"]) + ":" + phase + ":" + (judge or "")).encode()).hexdigest()
     order = sorted(ideas, key=lambda x: hashlib.sha256((seed + ":I" + str(x["ordinal"])).encode()).hexdigest())
     mapping = {"C" + str(i + 1): "I" + str(row["ordinal"]) for i, row in enumerate(order)}
     candidates = []

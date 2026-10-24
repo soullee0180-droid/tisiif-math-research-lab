@@ -454,3 +454,4 @@ create policy lab_team_storage_read on storage.objects for select to authenticat
  )
 );
 commit;
+

@@ -16,3 +16,4 @@ alter table lab.exports add column if not exists metadata jsonb not null default
 alter table lab.backup_runs add column if not exists metadata jsonb not null default '{}'::jsonb;
 commit;
 
+

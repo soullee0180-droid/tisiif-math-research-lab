@@ -4,8 +4,8 @@ from lab.domain.research import metrics, aggregate, digest, PROVIDERS
 
 def selected_runs(conn, user, filters):
     ws=user["workspace_id"]
-    ids=filters.get("plan_ids") or ([filters["plan_id"]] if filters.get("plan_id") else [])
-    if not ids:
+    ids=filters.get("plan_ids") if "plan_ids" in filters else ([filters["plan_id"]] if filters.get("plan_id") else [])
+    if not ids and "plan_ids" not in filters:
         row=one(conn,"""select id from lab.plans where workspace_id=%s and cohort in ('main','pilot')
             and transport='api' order by (cohort='main') desc,created_at desc limit 1""",(ws,))
         ids=[row["id"]] if row else []
@@ -66,6 +66,7 @@ def selected_runs(conn, user, filters):
         run.update(ideas=ideas,selection=selection,metrics=met,jobs=jobs_by[rid],
                    group_hash=digest(group),group_condition=group)
         result.append(run)
+    if filters.get("group_hash"):result=[r for r in result if r["group_hash"]==filters["group_hash"]]
     return result
 
 def summarize(rows,common=True,group_hash=None):
