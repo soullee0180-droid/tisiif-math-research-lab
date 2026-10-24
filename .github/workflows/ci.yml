@@ -1,0 +1,93 @@
+name: Verify research application
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: write
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: tisiif_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      APP_ENV: test
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/tisiif_test
+      LOCAL_STORAGE_DIR: ${{ github.workspace }}/.local/storage
+      PYTHONPATH: src
+      TEST_AUTH_SECRET: local-ci-fixtures-only
+      SECRETS_MASTER_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: "24"}
+      - uses: astral-sh/setup-uv@v6
+        with: {python-version: "3.12"}
+      - name: Resolve and lock Python dependencies
+        run: |
+          if [ ! -f uv.lock ]; then uv lock; fi
+          uv sync --frozen
+      - name: Resolve and lock frontend dependencies
+        working-directory: apps/web
+        run: |
+          if [ ! -f package-lock.json ]; then
+            npm install --save-exact react@19 react-dom@19 react-router-dom@7 @tanstack/react-query@5 @supabase/supabase-js@2 tus-js-client@4 katex@0.16 react-markdown@10 remark-math@6 rehype-katex@7 @fontsource-variable/noto-sans-kr@5
+            npm install --save-dev --save-exact @types/react@19 @types/react-dom@19 typescript@5 vite@7 @vitejs/plugin-react@5 vitest@4 openapi-typescript@7 @playwright/test@1
+          else
+            npm ci
+          fi
+      - name: Persist initial reproducible locks
+        if: github.event_name == 'push'
+        run: |
+          git config user.name "TISIIF dependency lock"
+          git config user.email "actions@users.noreply.github.com"
+          git add uv.lock apps/web/package.json apps/web/package-lock.json
+          if ! git diff --cached --quiet; then
+            git commit -m "build: lock verified runtime dependencies"
+            git push
+          fi
+      - name: Verify specification contracts
+        run: uv run python verification/check_contracts.py
+      - name: Python syntax and application tests
+        run: |
+          uv run python -m compileall -q src
+          if [ -d tests/unit ]; then uv run pytest -q tests; fi
+      - name: Generate frontend API types
+        run: |
+          if [ -f src/lab/api/app.py ]; then uv run python scripts/export_openapi.py; fi
+      - name: Frontend tests and production build
+        working-directory: apps/web
+        run: |
+          if [ -f src/main.tsx ]; then npm run test && npm run build; fi
+      - name: Browser verification
+        working-directory: apps/web
+        run: |
+          if [ -f ../../tests/e2e/app.spec.ts ]; then
+            npx playwright install --with-deps chromium
+            npx playwright test --config ../../tests/e2e/playwright.config.ts
+          fi
+      - name: Capture dependency and test artifacts
+        if: always()
+        run: |
+          mkdir -p .test-artifacts
+          cp -f uv.lock .test-artifacts/ 2>/dev/null || true
+          cp -f apps/web/package.json apps/web/package-lock.json .test-artifacts/ 2>/dev/null || true
+          if [ -d apps/web/node_modules ]; then tar -czf .test-artifacts/node-modules.tar.gz -C apps/web node_modules; fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: verification-and-dependencies
+          path: |
+            .test-artifacts
+            docs/TEST_REPORT.md
+            apps/web/dist
+            test-results
+            playwright-report
+

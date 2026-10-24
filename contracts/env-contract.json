@@ -1,0 +1,44 @@
+{
+  "web_only": [
+    "APP_ORIGIN",
+    "SUPABASE_URL",
+    "SUPABASE_PUBLISHABLE_KEY",
+    "SUPABASE_SERVER_SECRET",
+    "DATABASE_URL",
+    "SUPABASE_JWT_ISSUER",
+    "SECRETS_MASTER_KEY",
+    "BOOTSTRAP_ADMIN_EMAIL",
+    "TEAM_EMAIL_ALLOWLIST",
+    "APP_ENV",
+    "BUILD_SHA",
+    "DEFAULT_WORKSPACE_ID"
+  ],
+  "worker": [
+    "SUPABASE_URL",
+    "SUPABASE_SERVER_SECRET",
+    "DATABASE_URL",
+    "SECRETS_MASTER_KEY",
+    "APP_ENV",
+    "BUILD_SHA",
+    "DEFAULT_WORKSPACE_ID",
+    "WORKER_NAME",
+    "BACKUP_DIR"
+  ],
+  "browser_public": [
+    "SUPABASE_URL",
+    "SUPABASE_PUBLISHABLE_KEY",
+    "APP_ORIGIN",
+    "BUILD_SHA"
+  ],
+  "never_in_browser": [
+    "SUPABASE_SERVER_SECRET",
+    "DATABASE_URL",
+    "SECRETS_MASTER_KEY",
+    "OPENAI_API_KEY",
+    "GEMINI_API_KEY",
+    "ANTHROPIC_API_KEY"
+  ],
+  "preferred_key_entry": "admin enters provider key into write-only settings form; AES-256-GCM encrypted in lab_private.provider_secrets",
+  "key_rotation": "new nonce per encryption; AAD=workspace_uuid + ':' + provider + ':v1'; master key is 32 random bytes encoded base64",
+  "sensitive_values": "never print, commit, put in screenshots, export, or include in AI chat messages"
+}

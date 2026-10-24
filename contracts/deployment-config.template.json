@@ -1,0 +1,44 @@
+{
+  "workspace_name": "TISIIF Math Research Lab",
+  "timezone": "Asia/Seoul",
+  "github_owner": "soullee0180-droid",
+  "github_repository": "tisiif-math-research-lab",
+  "web_service": "lab-web",
+  "worker_service": "lab-worker",
+  "supabase_project": "tisiif-math-lab",
+  "supabase_region": "Singapore",
+  "admin_email": "<ADMIN_GOOGLE_EMAIL>",
+  "researcher_emails": [
+    "<MEMBER_2_GOOGLE_EMAIL>",
+    "<MEMBER_3_GOOGLE_EMAIL>"
+  ],
+  "google_cloud_project_id": "<EXISTING_OR_NEW_PROJECT_ID>",
+  "supabase_project_ref": "<GENERATED_BY_SUPABASE>",
+  "app_origin": "<ACTUAL_RENDER_HTTPS_ORIGIN>",
+  "billing_ready": {
+    "supabase": false,
+    "openai_api": false,
+    "google_api": false,
+    "anthropic_api": false,
+    "render": false
+  },
+  "provider_eligibility_confirmed": {
+    "openai": false,
+    "google": false,
+    "anthropic": false
+  },
+  "live_smoke_test_authorized": false,
+  "smoke_test_max_requests": 3,
+  "paper_selection_by_team": true,
+  "representative_paper_required_to_build_app": false,
+  "hosting_provider": "render",
+  "render_project": "tisiif-math-lab",
+  "render_region": "singapore",
+  "web_service_type": "web",
+  "worker_service_type": "worker",
+  "worker_min_memory_mib": 2048,
+  "fresh_implementation_required": true,
+  "implementation_authorized_by_document_alone": false,
+  "research_complete_by": "2026-11-01",
+  "worker_backup_dir": "/var/backups/tisiif"
+}

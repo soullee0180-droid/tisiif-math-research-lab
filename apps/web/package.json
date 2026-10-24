@@ -1,0 +1,7 @@
+{
+  "name":"tisiif-web","version":"2.0.0","private":true,"type":"module",
+  "scripts":{"dev":"vite --host 0.0.0.0","build":"tsc -b && vite build","test":"vitest run","generate-types":"openapi-typescript ../../docs/openapi.json -o src/api/generated.d.ts"},
+  "dependencies":{"react":"19","react-dom":"19","react-router-dom":"7","@tanstack/react-query":"5","@supabase/supabase-js":"2","tus-js-client":"4","katex":"0.16","react-markdown":"10","remark-math":"6","rehype-katex":"7","@fontsource-variable/noto-sans-kr":"5"},
+  "devDependencies":{"@types/react":"19","@types/react-dom":"19","typescript":"5","vite":"7","@vitejs/plugin-react":"5","vitest":"4","openapi-typescript":"7","@playwright/test":"1"}
+}
+
