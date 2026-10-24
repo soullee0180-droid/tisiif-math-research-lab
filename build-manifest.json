@@ -1,0 +1,81 @@
+{
+  "app": "TISIIF Math Research Lab",
+  "version": "3.0.0",
+  "source_commit": "local-uncommitted-pending-upload-approval",
+  "node": "v24.22.1",
+  "created_at": "2026-10-24T20:04:13.062Z",
+  "package_lock_sha256": "8d3b4c9a01f8fedd9a37d5b51e799c9a8c49402b8a46400ec1127aaf8512e5e8",
+  "deno_lock_sha256": "a3d5c25d0ace946651cc33381d1b5ee86aebbc6115dcefb85f053e5f7564ae2c",
+  "protocol_sha256": "5d2ce21ece6af1c70f8552a8be78f37e1f79c45bf22793580808ea50c8737b97",
+  "migrations": [
+    {
+      "file": "20261024190439_free_schema.sql",
+      "sha256": "90e5cab76284c6087915707d91d89b4908bbc140d719f53f7fd6eb6402b6d5d8"
+    },
+    {
+      "file": "20261024190638_free_api.sql",
+      "sha256": "6c586650aced6f4b96c48207cd0828f27e5e6ca8afc54b17f95fa1aa0a452d76"
+    },
+    {
+      "file": "20261024190816_free_queue.sql",
+      "sha256": "4542519d56c41e433cf0323d5121c5541ee187451b7d805726853d61a9ba9acd"
+    },
+    {
+      "file": "20261024190930_free_research_tools.sql",
+      "sha256": "68d690e622e48de6541b9bd46e1f6761674a5129fb691bbe9cba699dd0eecd2d"
+    },
+    {
+      "file": "20261024191354_free_scheduler.sql",
+      "sha256": "ca91b41713a0bccb3289313ca956bc5e8110cea6e9dbea2737246aa6387da718"
+    },
+    {
+      "file": "20261024193635_free_admission.sql",
+      "sha256": "e854c14123f3329d1dc22f4a673aa0ecbb21c6b85a5bc57700a2d9e8a90243be"
+    },
+    {
+      "file": "20261024193753_free_capability_probe.sql",
+      "sha256": "21aad7d28ddf4246e8bb972f207f7254a703d807b11e5bb5f2c4e994bb10c6bc"
+    },
+    {
+      "file": "20261024195427_free_provider_files.sql",
+      "sha256": "86202a8db3e8e8e5af1a8e22d66643c9d79a578feb73a43d37b6292b220acb7f"
+    }
+  ],
+  "constraints": {
+    "infrastructure_monthly_budget_usd": 0,
+    "real_api_enabled_default": false,
+    "real_api_budget_usd_default": 0
+  },
+  "dependencies": {
+    "@fontsource/noto-sans-kr": "5.3.1",
+    "@noble/hashes": "1.8.0",
+    "@supabase/supabase-js": "2.118.0",
+    "exceljs": "4.4.0",
+    "fflate": "0.8.3",
+    "katex": "0.19.1",
+    "lucide-react": "1.61.0",
+    "pdf-lib": "1.17.1",
+    "pdfjs-dist": "6.4.299",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "react-markdown": "10.1.0",
+    "rehype-katex": "7.0.1",
+    "remark-gfm": "4.0.1",
+    "remark-math": "6.0.0",
+    "tus-js-client": "4.3.1"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.11",
+    "@playwright/test": "1.64.1",
+    "@types/node": "26.6.5",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "deno": "2.9.6",
+    "esbuild": "0.28.2",
+    "supabase": "2.122.0",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3",
+    "vite": "7.3.7",
+    "vitest": "4.1.12"
+  }
+}

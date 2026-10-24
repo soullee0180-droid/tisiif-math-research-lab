@@ -1,0 +1,39 @@
+name: Verify free research application
+on:
+  push:
+    branches: [main, free/v3-from-scratch]
+  pull_request:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run check
+      - run: npm test
+      - run: npm run test:sql
+      - run: node --import tsx tests/integration/pipeline.ts
+      - run: node --import tsx tests/integration/admission.ts
+      - run: node --import tsx tests/integration/provider-files.ts
+      - run: npm run test:stress
+      - run: npm run build
+      - run: npm run bundle:edge
+      - run: npx deno check --config supabase/functions/deno.json supabase/functions/api/index.ts
+      - run: npx playwright install --with-deps chromium
+      - run: pip install pypdf==6.1.3 reportlab==4.4.5
+      - run: python tests/fixtures/make_pdf_canary.py
+      - run: npx playwright test
+        env:
+          VITE_SUPABASE_URL: http://127.0.0.1:4174
+          VITE_SUPABASE_PUBLISHABLE_KEY: fixture-ci-publishable
+      - run: python tests/fixtures/check_prepared_pdf.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: free-v3-verification
+          path: test-results/

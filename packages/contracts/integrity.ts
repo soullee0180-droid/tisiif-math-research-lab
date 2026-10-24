@@ -1,4 +1,4 @@
-import{sha,stable,type Json}from'./core';
+import{sha,stable,type Json}from'./core.ts';
 export const sections=['members','papers','assets','checkpoints','checkpoint_revisions','revision_assets','protocol_versions','model_profiles','plans','plan_inputs','plan_models','runs','jobs','attempts','ideas','selections','usefulness_ratings','agreement_ratings','review_samples','review_assignments','review_revisions','analysis_snapshots','export_manifests','audit_events'] as const;
 export async function leaf(section:string,index:number,row:Json){return sha(section+':'+index+':'+stable(row))}
 export async function tree(hashes:string[]){const levels=[hashes];if(!hashes.length)return{root:await sha('empty'),levels};while(levels.at(-1)!.length>1){const current=levels.at(-1)!,next=[];for(let i=0;i<current.length;i+=2)next.push(await sha(current[i]+(current[i+1]||current[i])));levels.push(next)}return{root:levels.at(-1)![0],levels}}

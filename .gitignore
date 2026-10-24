@@ -7,3 +7,6 @@ apps/web/public/vendor/
 test-results/
 playwright-report/
 .supabase/
+
+apps/web/__pdf.html
+.cloud-before.json

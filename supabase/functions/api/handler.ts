@@ -13,17 +13,21 @@ export async function handler(req:Request,rt:Runtime){const id=crypto.randomUUID
  let result:any;
  if(req.method==='GET'){
  if(path==='/v1/me')result=identity;
- else if(path.startsWith('/v1/read/'))result=await get(path.slice(9),query);
+ else if(path.startsWith('/v1/read/')){const args:Json={...query};if(query.plan_ids_json)args.plan_ids=JSON.parse(query.plan_ids_json);result=await get(path.slice(9),args);if(path==='/v1/read/settings')result.server_flags={master_key:!!rt.env('LAB_SECRETS_MASTER_KEY'),scheduler_secret:!!rt.env('LAB_SCHEDULER_SECRET')}}
+ else if(path==='/v1/duplicate')result=await rt.rpc('lab_duplicate',{w,a,hash:query.hash});
  else if(path==='/v1/asset'){const asset=await rt.rpc('lab_asset',{w,a,asset_id:query.id});if(asset.status!=='verified')throw Error('ASSET_NOT_VERIFIED');await rt.rpc('lab_usage',{bytes_count:asset.bytes});result={asset,url:await rt.download(asset.kind,asset.path)}}
  else throw Error('NOT_FOUND');
  }else if(req.method==='POST'){
  const write=async(action:string,payload=p)=>rt.rpc('lab_write',{w,a,action,p:payload,idem:key});
  if(path.startsWith('/v1/write/')){const action=path.slice(10);if(!['paper_create','paper_update','checkpoint_create','revision_clone','revision_save','revision_approve','plan_create','plan_control','member_save','model_save','model_enable','budget_save','workspace_settings','provider_pause','analysis_create','review_submit','backup_create','backup_downloaded'].includes(action))throw Error('ACTION_NOT_ALLOWED');if(action==='revision_save'&&p.body?.input_mode==='pdf')recipeValid(p.body.page_recipe);if(action==='model_save'&&(!providers.includes(p.provider)||!['responses','messages','generate_content'].includes(p.api_family)))throw Error('MODEL_PROFILE_INVALID');result=await write(action)}
+ else if(path==='/v1/upload/batch')result=await write('asset_batch_reserve');
+ else if(path==='/v1/upload/failed')result=await write('asset_failed');
  else if(path==='/v1/upload/reserve'){if(!['source','prepared'].includes(p.kind))throw Error('UPLOAD_KIND_INVALID');result=await write('asset_reserve');const token=await rt.uploadToken(result.kind,result.path);result={asset:result,...token}}
  else if(path==='/v1/upload/resume'){const asset=await rt.rpc('lab_asset',{w,a,asset_id:p.id});if(!['source','prepared'].includes(asset.kind))throw Error('UPLOAD_KIND_INVALID');result={asset,...await rt.uploadToken(asset.kind,asset.path)}}
  else if(path==='/v1/upload/verify'){const asset=await rt.rpc('lab_asset',{w,a,asset_id:p.id});const bytes=await rt.head(asset.kind,asset.path);if(bytes!==asset.bytes)throw Error('ASSET_SIZE_MISMATCH');let serverHash=false;if(asset.kind==='prepared'){if(bytes>8388608)throw Error('PREPARED_TOO_LARGE');if(await sha(await rt.get(asset.kind,asset.path))!==asset.sha256)throw Error('ASSET_HASH_MISMATCH');serverHash=true}const metadata:Json={size_verified:true,inspection_source:'client_inspected'};if(p.inspection)metadata.inspection=p.inspection;if(p.preview_sha256){if(p.preview_sha256!==asset.sha256)throw Error('PREVIEW_HASH_MISMATCH');metadata.preview_sha256=p.preview_sha256}result=await write('asset_verified',{id:asset.id,server_hash:serverHash,metadata})}
  else if(path==='/v1/scheduler/install'){admin();const secret=rt.env('LAB_SCHEDULER_SECRET');if(!secret)throw Error('SCHEDULER_SECRET_NOT_CONFIGURED');result=await rt.rpc('lab_install_scheduler',{w,a,project_url:rt.env('SUPABASE_URL'),secret})}
  else if(path==='/v1/keys'){admin();if(!providers.includes(p.provider)||typeof p.key!=='string'||!p.key.trim())throw Error('KEY_INPUT_REQUIRED');result=await write('key_store',{provider:p.provider,encrypted:await crypt(rt,w,p.provider,p.key),last_four:p.key.slice(-4),request_hash:await sha(p.provider+':'+p.key)})}
+ else if(path==='/v1/models/smoke'){admin();result=await rt.rpc('lab_smoke_begin',{w,a,profile:p.profile_id,revision:p.revision_id,probe_stage:p.stage||'generate'})}
  else if(path==='/v1/manual/prompt')result=await manualPrompt(rt,w,a,p.job_id);
  else if(path==='/v1/manual/response')result=await manualSubmit(rt,w,a,p.attempt_id,p);
  else if(path==='/v1/reparse'){await rt.rpc('lab_authorize_attempt',{w,a,attempt:p.attempt_id});result=await reparse(rt,p.attempt_id)}
@@ -34,6 +38,7 @@ export async function handler(req:Request,rt:Runtime){const id=crypto.randomUUID
  else if(path==='/v1/restore/file'){admin();const asset=await rt.rpc('lab_restore_file',{w,a,session:p.session_id,old_asset:p.asset_id,verified_hash:null});result={asset,...await rt.uploadToken(asset.kind,asset.path)}}
  else if(path==='/v1/restore/file-check'){admin();const asset=await rt.rpc('lab_restore_file',{w,a,session:p.session_id,old_asset:p.asset_id,verified_hash:null});if(await rt.head(asset.kind,asset.path)!==asset.bytes)throw Error('RESTORE_FILE_SIZE');if(asset.bytes<=8388608){if(await sha(await rt.get(asset.kind,asset.path))!==asset.sha256)throw Error('RESTORE_FILE_HASH')}else if(p.download_verified_hash!==asset.sha256)throw Error('RESTORE_CLIENT_HASH_REQUIRED');result=await rt.rpc('lab_restore_file',{w,a,session:p.session_id,old_asset:p.asset_id,verified_hash:asset.sha256})}
  else if(path==='/v1/restore/file-download'){admin();const asset=await rt.rpc('lab_restore_file',{w,a,session:p.session_id,old_asset:p.asset_id,verified_hash:null});result={url:await rt.download(asset.kind,asset.path)}}
+ else if(path==='/v1/restore/inspect'){admin();result=await rt.rpc('lab_restore_inspect',{w,a,session:p.session_id})}
  else if(path==='/v1/restore/finish'){admin();result=await rt.rpc('lab_restore_finish',{w,a,session:p.session_id})}
  else if(path==='/v1/restore/activate'){admin();result=await rt.rpc('lab_restore_activate',{w,a,session:p.session_id,evidence:p.evidence})}
  else throw Error('NOT_FOUND');

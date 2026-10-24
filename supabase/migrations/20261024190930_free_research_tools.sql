@@ -1,15 +1,15 @@
-create function public.lab_review_sample(w uuid,a uuid,filters jsonb,reviewers uuid[]) returns jsonb language plpgsql security invoker set search_path='' as $$ declare data jsonb;rid uuid;v jsonb;gen text;chosen boolean;pop integer;actual integer;stratum text;candidate record;reviewer uuid;manifest jsonb='[]';begin
+create function public.lab_review_sample(w uuid,a uuid,filters jsonb,reviewers uuid[]) returns jsonb language plpgsql security invoker set search_path='' as $$ declare data jsonb;rid uuid;v jsonb;gen text;chosen boolean;pop integer;actual integer;stratum text;candidate record;reviewer uuid;v_manifest jsonb='[]';begin
  perform lab_private.actor(w,a,true);if cardinality(reviewers)<>2 or reviewers[1]=reviewers[2] then raise exception 'TWO_REVIEWERS_REQUIRED';end if;foreach reviewer in array reviewers loop perform lab_private.actor(w,reviewer);end loop;
  data=lab_private.analysis(w,filters);rid=gen_random_uuid();insert into lab.review_samples(id,workspace_id,manifest) values(rid,w,'[]');
  foreach gen in array array['google','openai','anthropic'] loop foreach chosen in array array[true,false] loop
  stratum=gen||':'||case when chosen then 'selected' else 'not_selected' end;
  select count(*) into pop from jsonb_array_elements(data->'runs') r,jsonb_array_elements(r->'ideas') i where r->>'generator'=gen and(r->>'selected'=i->>'candidate_id')=chosen and coalesce((r->>'human_corrected')::boolean,false)=false;
- actual=least(5,pop);manifest=manifest||jsonb_build_array(jsonb_build_object('stratum',stratum,'population',pop,'actual_n',actual,'shortage',5-actual,'inclusion_probability',case when pop>0 then actual::numeric/pop else null end));
+ actual=least(5,pop);v_manifest=v_manifest||jsonb_build_array(jsonb_build_object('stratum',stratum,'population',pop,'actual_n',actual,'shortage',5-actual,'inclusion_probability',case when pop>0 then actual::numeric/pop else null end));
  for candidate in select i->>'id' idea_id from jsonb_array_elements(data->'runs') r,jsonb_array_elements(r->'ideas') i where r->>'generator'=gen and(r->>'selected'=i->>'candidate_id')=chosen and coalesce((r->>'human_corrected')::boolean,false)=false order by encode(extensions.digest('20261023:'||coalesce(i->>'original_id',i->>'id'),'sha256'),'hex') limit 5 loop
  foreach reviewer in array reviewers loop insert into lab.review_assignments(workspace_id,sample_id,idea_id,reviewer_id,stratum) values(w,rid,candidate.idea_id::uuid,reviewer,stratum);end loop;end loop;
  end loop;end loop;
- update lab.review_samples s set manifest=lab_review_sample.manifest where s.id=rid;
- return jsonb_build_object('id',rid,'manifest',manifest);end $$;
+ update lab.review_samples s set manifest=v_manifest where s.id=rid;
+ return jsonb_build_object('id',rid,'manifest',v_manifest);end $$;
 create function lab_private.remap(v jsonb,m jsonb) returns jsonb language plpgsql immutable security invoker set search_path='' as $$ declare r jsonb;pair record;begin
  if jsonb_typeof(v)='string' then return coalesce(m->(v#>>'{}'),v);elsif jsonb_typeof(v)='array' then select coalesce(jsonb_agg(lab_private.remap(value,m)),'[]') into r from jsonb_array_elements(v);return r;elsif jsonb_typeof(v)='object' then r='{}';for pair in select * from jsonb_each(v) loop r=r||jsonb_build_object(pair.key,case when pair.key in('original_id','seed','input_hash','reference_hash','condition_hash','sha256') then pair.value else lab_private.remap(pair.value,m) end);end loop;return r;end if;return v;end $$;
 create function public.lab_restore_begin(w uuid,a uuid,manifest jsonb) returns jsonb language plpgsql security invoker set search_path='' as $$ declare target uuid;sid uuid;bytes bigint;begin
@@ -53,7 +53,7 @@ declare s lab.restore_sessions;item jsonb;r jsonb;old_id text;new_id uuid;m json
  end loop;
  update lab.restore_sessions set id_map=m,progress=s.progress where id=session;return jsonb_build_object('accepted',true);end $$;
 create function public.lab_restore_file(w uuid,a uuid,session uuid,old_asset uuid,verified_hash text default null) returns jsonb language plpgsql security invoker set search_path='' as $$ declare s lab.restore_sessions;asset lab.assets;begin
- perform lab_private.actor(w,a,true);select * into s from lab.restore_sessions where id=session and workspace_id=w and created_by=a and status='importing';if not found then raise exception 'RESTORE_STATE';end if;
+ perform lab_private.actor(w,a,true);select * into s from lab.restore_sessions where id=session and workspace_id=w and created_by=a and status in('importing','verified');if not found then raise exception 'RESTORE_STATE';end if;
  select * into asset from lab.assets where workspace_id=s.target_workspace_id and id=(s.id_map->>old_asset::text)::uuid;if not found or not exists(select 1 from lab_private.restore_files where session_id=session and asset_id=asset.id) then raise exception 'RESTORE_FILE_NOT_FOUND';end if;
  if verified_hash is not null then if verified_hash<>asset.sha256 then raise exception 'RESTORE_FILE_HASH';end if;update lab_private.restore_files set checked=true where session_id=session and asset_id=asset.id;update lab.assets set status='verified',server_hash=true where id=asset.id;end if;return to_jsonb(asset);end $$;
 create function public.lab_restore_finish(w uuid,a uuid,session uuid) returns jsonb language plpgsql security invoker set search_path='' as $$ declare s lab.restore_sessions;r record;begin
@@ -74,3 +74,7 @@ do $$ declare f record;begin for f in select p.oid::regprocedure signature from 
 create function public.lab_restore_manifest(w uuid,a uuid,session uuid) returns jsonb language plpgsql security invoker set search_path='' as $$ declare v jsonb;begin perform lab_private.actor(w,a,true);select manifest into v from lab.restore_sessions where id=session and workspace_id=w and created_by=a;if v is null then raise exception 'NOT_FOUND';end if;return v;end $$;
 revoke execute on function public.lab_restore_manifest(uuid,uuid,uuid) from public,anon,authenticated;
 grant execute on function public.lab_restore_manifest(uuid,uuid,uuid) to service_role;
+
+create function public.lab_restore_inspect(w uuid,a uuid,session uuid) returns jsonb language plpgsql security invoker set search_path='' as $$ declare s lab.restore_sessions;filters jsonb;begin perform lab_private.actor(w,a,true);select * into s from lab.restore_sessions where id=session and workspace_id=w and created_by=a and status='verified';if not found then raise exception 'RESTORE_NOT_VERIFIED';end if;select jsonb_build_object('plan_ids',coalesce(jsonb_agg(id),'[]')) into filters from lab.plans where workspace_id=s.target_workspace_id;return jsonb_build_object('workspace_id',s.target_workspace_id,'active',false,'manifest',s.manifest,'analysis',lab_private.analysis(s.target_workspace_id,filters),'files',(select jsonb_agg(to_jsonb(f)) from lab_private.restore_files f where session_id=session));end $$;
+revoke execute on function public.lab_restore_inspect(uuid,uuid,uuid) from public,anon,authenticated;
+grant execute on function public.lab_restore_inspect(uuid,uuid,uuid) to service_role;

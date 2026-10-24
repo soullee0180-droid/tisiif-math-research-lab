@@ -1,13 +1,13 @@
 create function public.lab_claim(provider_name text) returns jsonb language plpgsql security invoker set search_path='' as $$
 declare pr lab_private.provider_runtime;j lab.jobs;pl lab.plans;at lab.attempts;b lab_private.usage_budgets;model jsonb;tokens bigint;cost numeric;begin
  select * into pr from lab_private.provider_runtime where provider=provider_name for update;if not found or pr.paused or pr.blocked_reason is not null or pr.next_allowed_at>now() or pr.last_claim+pr.min_interval_ms*interval '1 millisecond'>now() then return null;end if;
- if exists(select 1 from lab.jobs where provider=provider_name and status='running') then return null;end if;
+ if exists(select 1 from lab.jobs jj join lab.plans pp on pp.id=jj.plan_id where jj.provider=provider_name and jj.status='running' and pp.transport<>'manual_web') then return null;end if;
  if(select count(*) from lab_private.quota_reservations where provider=provider_name and created_at>now()-interval '1 minute')>=pr.rpm then return null;end if;
- select j0.* into j from lab.jobs j0 join lab.plans p on p.workspace_id=j0.workspace_id and p.id=j0.plan_id join lab.workspaces ws on ws.id=p.workspace_id
+ select j0.* into j from lab.jobs j0 join lab.plans p on p.workspace_id=j0.workspace_id and p.id=j0.plan_id join lab.workspaces ws on ws.id=p.workspace_id left join lab_private.plan_fairness fair on fair.plan_id=p.id
  where j0.provider=provider_name and j0.status='queued' and j0.due_at<=now() and p.status='running' and p.scheduled_at<=now() and p.transport<>'manual_web' and ws.active and(j0.depends_on is null or exists(select 1 from lab.jobs parent where parent.id=j0.depends_on and parent.status='complete'))
- order by case when j0.plan_id=pr.last_plan then 1 else 0 end,coalesce((select max(a.created_at) from lab.attempts a join lab.jobs jj on jj.id=a.job_id where jj.plan_id=j0.plan_id),'1970-01-01'),j0.created_at,j0.id for update of j0 skip locked limit 1;
+ order by case when j0.plan_id=pr.last_plan then 1 else 0 end,coalesce(fair.last_claimed_at,'1970-01-01'),j0.created_at,j0.id for update of j0 skip locked limit 1;
  if not found then return null;end if;select * into pl from lab.plans where id=j.plan_id;select snapshot into model from lab.plan_models where plan_id=pl.id and provider=provider_name;
- tokens=coalesce((model->>'output_cap')::integer,1000)+20000;cost=0;
+ tokens=coalesce((model->>'output_cap')::integer,1000)+20000;cost=0;perform pg_advisory_xact_lock(610241);if lab_private.storage_admitted()+2097152>800000000 then update lab.jobs set status='blocked',last_error='RESPONSE_STORAGE_RESERVATION_BLOCKED' where id=j.id;return null;end if;
  if pl.transport='api' then
   if not coalesce((select (settings->>'api_enabled')::boolean from lab.workspaces where id=j.workspace_id),false) then return null;end if;
   select * into b from lab_private.usage_budgets where workspace_id=j.workspace_id and provider=provider_name for update;
@@ -17,8 +17,9 @@ declare pr lab_private.provider_runtime;j lab.jobs;pl lab.plans;at lab.attempts;
  if coalesce((select sum(estimated_tokens) from lab_private.quota_reservations where provider=provider_name and created_at>now()-interval '1 minute'),0)+tokens>pr.tpm then return null;end if;
  update lab.jobs set status='running',lease_until=now()+interval '90 seconds',attempt_no=attempt_no+1 where id=j.id returning * into j;
  insert into lab.attempts(workspace_id,job_id,attempt_no) values(j.workspace_id,j.id,j.attempt_no) returning * into at;
- insert into lab_private.quota_reservations(provider,job_id,attempt_id,estimated_tokens,reserved_usd) values(provider_name,j.id,at.id,tokens,cost);
+ insert into lab_private.quota_reservations(provider,job_id,attempt_id,estimated_tokens,reserved_usd,reserved_storage_bytes) values(provider_name,j.id,at.id,tokens,cost,2097152);
  if cost>0 then update lab_private.usage_budgets set reserved_usd=reserved_usd+cost where workspace_id=j.workspace_id and provider=provider_name;end if;
+ insert into lab_private.plan_fairness(plan_id,last_claimed_at) values(j.plan_id,now()) on conflict(plan_id) do update set last_claimed_at=excluded.last_claimed_at;
  update lab_private.provider_runtime set last_claim=now(),last_plan=j.plan_id where provider=provider_name;
  return jsonb_build_object('job_id',j.id,'attempt_id',at.id,'workspace_id',j.workspace_id);end $$;
 create function public.lab_context(attempt uuid) returns jsonb language sql stable security invoker set search_path='' as $$
@@ -33,6 +34,7 @@ create function public.lab_attempt(attempt uuid,command text,p jsonb) returns js
  when 'request' then if at.send_started_at is not null then raise exception 'ALREADY_SENT';end if;update lab.attempts set request_snapshot=p->'snapshot',request_asset_id=(p->>'asset_id')::uuid,milestone='request_prepared' where id=attempt;
  when 'send' then if at.request_asset_id is null or at.send_started_at is not null then raise exception 'SEND_STATE';end if;update lab.attempts set milestone='send_started',send_started_at=now() where id=attempt;
  when 'response' then
+ update lab_private.quota_reservations set reserved_storage_bytes=0 where attempt_id=attempt;
  if at.response_asset_id is not null then if at.response_hash<>p->>'sha256' then raise exception 'RAW_CONFLICT';end if;else update lab.attempts set response_asset_id=(p->>'asset_id')::uuid,response_hash=p->>'sha256',response_stored_at=now(),milestone='response_stored',metadata=metadata||coalesce(p->'metadata','{}') where id=attempt;end if;
  when 'complete' then
  if at.response_asset_id is null or at.request_snapshot is null then raise exception 'RAW_REQUIRED';end if;map=at.request_snapshot->'mapping'->'display_to_canonical';
@@ -73,12 +75,12 @@ create function public.lab_attempt(attempt uuid,command text,p jsonb) returns js
  return jsonb_build_object('id',attempt);end $$;
 create function public.lab_raw_reserve(attempt uuid,bytes_count bigint,hash text,direction text) returns jsonb language plpgsql security invoker set search_path='' as $$ declare at lab.attempts;rid uuid;v jsonb;begin
  select * into at from lab.attempts where id=attempt;if not found or at.completed_at is not null or direction not in('request','response') then raise exception 'RAW_STATE';end if;
- perform pg_advisory_xact_lock(610241);if lab_private.storage_admitted()+bytes_count>800000000 then raise exception 'STORAGE_CAPACITY';end if;
+ perform pg_advisory_xact_lock(610241);update lab_private.quota_reservations set reserved_storage_bytes=greatest(0,reserved_storage_bytes-bytes_count) where attempt_id=attempt and status='held';if lab_private.storage_admitted()+bytes_count>800000000 then raise exception 'STORAGE_CAPACITY';end if;
  rid=gen_random_uuid();insert into lab.assets(id,workspace_id,kind,path,bytes,sha256,created_by) values(rid,at.workspace_id,'raw',at.workspace_id::text||'/'||rid::text||'/'||direction||'.json',bytes_count,hash,(select created_by from lab.plans where id=(select plan_id from lab.jobs where id=at.job_id)));select to_jsonb(s) into v from lab.assets s where id=rid;return v;end $$;
 create function public.lab_raw_verified(asset uuid) returns boolean language plpgsql security invoker set search_path='' as $$ begin update lab.assets set status='verified',server_hash=true where id=asset and kind='raw';return found;end $$;
 create function public.lab_recover() returns integer language plpgsql security invoker set search_path='' as $$ declare j lab.jobs;at lab.attempts;n integer=0;begin
  if not pg_try_advisory_xact_lock(610242) then return 0;end if;perform 1 from lab_private.provider_runtime order by provider for update;
- for j in select * from lab.jobs where status='running' and lease_until<now() for update skip locked loop
+ for j in select * from lab.jobs where status='running' and lease_until<now() and plan_id in(select id from lab.plans where transport<>'manual_web') for update skip locked loop
  select * into at from lab.attempts where job_id=j.id and attempt_no=j.attempt_no;
  update lab.jobs set status=case when at.response_asset_id is not null then 'parse_failed' when at.send_started_at is not null then 'unknown_remote' else 'queued' end,last_error=case when at.send_started_at is not null and at.response_asset_id is null then 'unknown_remote' else 'STALE_LEASE' end,lease_until=null where id=j.id;
  if at.send_started_at is null then update lab_private.usage_budgets b set reserved_usd=greatest(0,b.reserved_usd-q.reserved_usd) from lab_private.quota_reservations q where q.attempt_id=at.id and q.status='held' and b.workspace_id=j.workspace_id and b.provider=j.provider;update lab_private.quota_reservations set status='released' where attempt_id=at.id and status='held';end if;n=n+1;

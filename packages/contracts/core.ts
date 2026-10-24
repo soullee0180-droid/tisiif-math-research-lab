@@ -1,18 +1,19 @@
-import generate from './prompts/generate.json';
-import select from './prompts/select.json';
-import usefulness from './prompts/usefulness.json';
-import agreement from './prompts/agreement.json';
-import gs from './schemas/generate.schema.json';
-import ss from './schemas/select.schema.json';
-import us from './schemas/usefulness.schema.json';
-import as from './schemas/agreement.schema.json';
+import{sha256}from'@noble/hashes/sha256';
+import generate from './prompts/generate.json' with {type:'json'};
+import select from './prompts/select.json' with {type:'json'};
+import usefulness from './prompts/usefulness.json' with {type:'json'};
+import agreement from './prompts/agreement.json' with {type:'json'};
+import gs from './schemas/generate.schema.json' with {type:'json'};
+import ss from './schemas/select.schema.json' with {type:'json'};
+import us from './schemas/usefulness.schema.json' with {type:'json'};
+import as from './schemas/agreement.schema.json' with {type:'json'};
 export const providers=['google','openai','anthropic'] as const;
 export type Provider=typeof providers[number];
 export type Stage='generate'|'select'|'usefulness'|'agreement';
 export type Json=Record<string,any>;
 export const enc=new TextEncoder();
 export const stable=(v:any):string=>v===null||typeof v!=='object'?JSON.stringify(v):Array.isArray(v)?'['+v.map(stable).join(',')+']':'{'+Object.keys(v).sort().filter(k=>v[k]!==undefined).map(k=>JSON.stringify(k)+':'+stable(v[k])).join(',')+'}';
-export async function sha(v:string|Uint8Array|ArrayBuffer){return [...new Uint8Array(await crypto.subtle.digest('SHA-256',typeof v==='string'?enc.encode(v):v as BufferSource))].map(b=>b.toString(16).padStart(2,'0')).join('')}
+export async function sha(v:string|Uint8Array|ArrayBuffer){const bytes=typeof v==='string'?enc.encode(v):new Uint8Array(v as ArrayBuffer);return [...(globalThis.crypto?.subtle?new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)):sha256(bytes))].map(b=>b.toString(16).padStart(2,'0')).join('')}
 export function integer(v:any,min=1,max=10){if(!Number.isInteger(v)||v<min||v>max)throw Error('INTEGER_RANGE');return v as number}
 export function schema(stage:Stage,k:number):Json{integer(k);const s=structuredClone(({generate:gs,select:ss,usefulness:us,agreement:as})[stage]) as Json;
  const visit=(x:any)=>{if(!x||typeof x!=='object')return;if(x.enum?.every((i:any)=>typeof i==='string'&&/^[IC]\d+$/.test(i))){const p=stage==='generate'?'I':'C';x.enum=Array.from({length:k},(_,n)=>p+(n+1))}if(x.type==='array'&&x.items?.type==='object'){x.minItems=k;x.maxItems=k}Object.values(x).forEach(visit)};visit(s);if(stage==='usefulness'){const p=s.properties.ratings.items.properties.score;p.minimum=0;p.maximum=4}return s}
@@ -27,6 +28,6 @@ export function anonymize(body:string){const text=body.replace(identityPrefix,''
 export function publicContext(rev:Json){return{goal:rev.goal,obstacle:rev.obstacle,abstract:rev.public_abstract||'',steps:(rev.steps||[]).filter((s:Json)=>s.is_public).map((s:Json)=>({index:s.index,title:s.title,body_md:s.body_md})),input_mode:rev.input_mode,public_text:rev.input_mode==='text'?rev.public_text:null,prepared_asset:rev.input_mode==='pdf'?{id:rev.prepared_asset_id,sha256:rev.prepared_sha256}:null}}
 export async function assemble(run:string,stage:Stage,judge:Provider,k:number,rev:Json,ideas:Json[]=[]){const map=stage==='generate'?null:await mapping(run,stage,judge,k);const dto:Json={public_context:publicContext(rev),task:{goal:rev.goal,obstacle:rev.obstacle}};
  if(map)dto.candidates=Object.entries(map.display_to_canonical).map(([id,canonical])=>{const i=ideas.find(i=>i.candidate_id===canonical);if(!i)throw Error('GENERATE_INCOMPLETE');return{candidate_id:id,title:anonymize(i.title).text,idea_md:anonymize(i.idea_md).text,why_helpful_md:i.why_helpful_md,next_steps:i.next_steps,assumptions:i.assumptions,unverified_points:i.unverified_points}});
- if(stage==='agreement')dto.reference={idea_md:rev.reference_idea_md};const p=({generate,select,usefulness,agreement})[stage];const vars:Json={PUBLIC_CONTEXT:stable(dto.public_context),TASK:stable(dto.task),CANDIDATES:stable(dto.candidates||[]),REFERENCE:stable(dto.reference||{}),K:k};const prompt=p.user_template.replace(/\{\{(\w+)\}\}/g,(_,key)=>String(vars[key]??''));return{dto,system:p.system,prompt,schema:schema(stage,k),mapping:map}}
+ if(stage==='agreement')dto.reference={idea_md:rev.reference_idea_md};const p=({generate,select,usefulness,agreement})[stage];const vars:Json={PUBLIC_CONTEXT:stable(dto.public_context),TASK:stable(dto.task),CANDIDATES:stable(dto.candidates||[]),REFERENCE:stable(dto.reference||{}),K:k};const prompt=p.user_template.replace(/\{\{(\w+)\}\}/g,(_:string,key:string)=>String(vars[key]??''));return{dto,system:p.system,prompt,schema:schema(stage,k),mapping:map}}
 export function mock(stage:Stage,k:number):Json{if(stage==='generate')return{ideas:Array.from({length:k},(_,i)=>({candidate_id:'I'+(i+1),title:'Fixture idea '+(i+1),idea_md:'Use a finite test case. Synthetic validation only.',why_helpful_md:'Checks the pipeline only.',next_steps:['Verify the finite case'],assumptions:['Synthetic fixture'],unverified_points:['Not a research result']}))};if(stage==='select')return{selected_candidate_id:'C1',rationale_md:'Synthetic selection.',risks_md:'Fixture only.'};return{ratings:Array.from({length:k},(_,i)=>stage==='usefulness'?{candidate_id:'C'+(i+1),score:i%5,validity:'promising_unverified',rationale_md:'Fixture score.',concerns:[],unable_reason:null}:{candidate_id:'C'+(i+1),label:i===0?'core':'none',rationale_md:'Fixture label.',corresponding_elements:[],unable_reason:null})}}
 export function recipeValid(recipe:Json[]){if(!Array.isArray(recipe)||recipe.filter(p=>p.include).length<1||recipe.filter(p=>p.include).length>30)throw Error('PDF_PAGE_LIMIT');for(const p of recipe){integer(p.page,1,300);if(![0,90,180,270].includes(p.rotation))throw Error('ROTATION');for(const m of p.masks||[])if(![m.x,m.y,m.w,m.h].every(Number.isFinite)||m.x<0||m.y<0||m.w<=0||m.h<=0||m.x+m.w>1||m.y+m.h>1)throw Error('MASK_RANGE')}return recipe}
