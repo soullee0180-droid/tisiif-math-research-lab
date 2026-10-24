@@ -14,7 +14,7 @@
 | 클라우드 조직 플랜·초기 자료 | PASS (확인 범위) | Supabase free/tier_free, ACTIVE_HEALTHY, 0 papers/plans/auth users/storage objects, DB 약 12.7MB |
 | 로그인 화면 cloud browser | PASS | 실제 1440px 미리보기 렌더 |
 | 실제 cloud browser PDF canary | PASS (기술 구조 범위) | 200dpi 재생성 후 text/annotations/attachments 0, JavaScript false. 수학적 누출 검토와 별도 |
-| CI Chromium 전체 UI·독립 pypdf | NOT_RUN | 저장소 목적지 사용자 승인 완료. workflow 업로드 후 실행 예정 |
+| CI Chromium 전체 UI·독립 pypdf | PASS | commit 2f2ad4e3251be81e4b8876186fbb03b658b5f664, Actions run 40134336764. 데스크톱·390px·prepared 다운로드·독립 pypdf 통과 |
 | 세 제공사 파일 어댑터 | PASS (모의 HTTP) | 별도 준비·multipart 정확 복원·handle·예산 해제·키/업로드 토큰 미노출. 실제 제공사 호출 0 |
 | Google 팀 3계정·미초대·refresh | BLOCKED | 실제 OAuth 설정·팀원 2명 이메일·개별 로그인 필요 |
 | Cloudflare Pages 실제 HTTPS | BLOCKED | Cloudflare 로그인 필요 |
@@ -29,3 +29,7 @@
 사용자가 지정 private 저장소로 최신 소스·마스터 프롬프트 업로드를 명시적으로 승인했다. 원격 저장 후 CI·배포를 이어간다. 기존 클라우드 자료는 보존한다.
 
 추가 PASS: 100개 batch 원자 예약·101개/40MiB 초과 거절, 다른 workspace IDOR, API Auth/CORS, 수동 정정 시 원문 보존·새 attempt·실제 모델 호출 0.
+
+실제 PostgreSQL 17 격리 CI PASS: 32개 동시 claim 중 1개 할당, 24개 멱등 요청은 같은 1개 행, nonce 1회, 2명 소유자의 공정 전환, RPM/TPM 차단, 8개 동시 100MiB 예약 중 7개 허용·800MB 미만. 실제 클라우드 부하와 구분한다.
+
+Supabase 배포는 진행 중이다. 기존 schema는 legacy 이름으로 보존했고 schema 및 읽기 RPC까지 적용했다. 쓰기 RPC는 배포 도구의 긴 요청 오류 때문에 기능별 내부 함수로 분리했으며 SQL·36-job 전체 파이프라인 로컬 검수는 다시 통과했다. 이 분리 버전의 CI와 남은 실제 배포 상태를 후속 갱신한다.

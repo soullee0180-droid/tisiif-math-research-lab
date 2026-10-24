@@ -49,4 +49,6 @@ jobs:
         if: always()
         with:
           name: free-v3-verification
-          path: test-results/
+          path: |
+            test-results/
+            build-manifest.json

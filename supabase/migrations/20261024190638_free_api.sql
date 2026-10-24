@@ -42,12 +42,10 @@ create function public.lab_read(w uuid,a uuid,kind text,args jsonb default '{}')
  when 'settings' then perform lab_private.actor(w,a,true);v=jsonb_build_object('workspace',(select to_jsonb(ws) from lab.workspaces ws where id=w),'budgets',(select jsonb_agg(to_jsonb(b)) from lab_private.usage_budgets b where workspace_id=w),'keys',(select jsonb_agg(to_jsonb(k)-'encrypted') from lab_private.provider_secrets k where workspace_id=w),'storage_admitted',lab_private.storage_admitted(),'database_bytes',pg_database_size(current_database()),'scheduler',(select to_jsonb(s) from lab_private.scheduler_state s),'backups',(select jsonb_agg(to_jsonb(b)-'body' order by created_at desc) from lab.backup_manifests b where workspace_id=w),'restores',(select jsonb_agg(to_jsonb(s)-'id_map'-'manifest' order by created_at desc) from lab.restore_sessions s where workspace_id=w));
  else raise exception 'READ_KIND_INVALID';end case;
  if v is null then raise exception 'NOT_FOUND';end if;return v;end $$;
-create function public.lab_write(w uuid,a uuid,action text,p jsonb,idem text) returns jsonb language plpgsql security invoker set search_path='' as $$
+create function lab_private.write_papers(w uuid,a uuid,action text,p jsonb) returns jsonb language plpgsql security invoker set search_path='' as $$
 declare m lab.members;h text;prior lab_private.idempotency_requests;v jsonb;rid uuid;pid uuid;cid uuid;ver integer;rev lab.checkpoint_revisions;pl lab.plans;gen text;judge text;rp integer;jid uuid;other text;item jsonb;k integer;rr integer;proto jsonb;models jsonb;dt timestamptz;budget lab_private.usage_budgets;cap jsonb;estimated_bytes bigint=0;max_output_bytes bigint=131072;
 begin
- m=lab_private.actor(w,a);if length(idem)<8 or length(idem)>200 then raise exception 'IDEMPOTENCY_REQUIRED';end if;
- perform pg_advisory_xact_lock(hashtextextended(w::text||a::text||idem,0));h=case when action='key_store' then p->>'request_hash' else lab_private.hash(jsonb_build_object('action',action,'payload',p)) end;select * into prior from lab_private.idempotency_requests where workspace_id=w and actor=a and key=idem;
- if found then if prior.payload_hash<>h then raise exception 'IDEMPOTENCY_CONFLICT';end if;return prior.result;end if;
+ m=lab_private.actor(w,a);
  case action
  when 'paper_create' then insert into lab.papers(workspace_id,created_by,title,metadata) values(w,a,left(p->>'title',500),coalesce(p->'metadata','{}')) returning id into rid;v=jsonb_build_object('id',rid);
  when 'paper_update' then update lab.papers set title=coalesce(p->>'title',title),metadata=coalesce(p->'metadata',metadata),archived=coalesce((p->>'archived')::boolean,archived) where workspace_id=w and id=(p->>'id')::uuid returning id into rid;if rid is null then raise exception 'NOT_FOUND';end if;v=jsonb_build_object('id',rid);
@@ -69,6 +67,16 @@ begin
   perform 1 from lab.assets where workspace_id=w and id=(rev.body->>'prepared_asset_id')::uuid and kind='prepared' and status='verified' and server_hash and sha256=rev.body->>'prepared_sha256' and metadata->>'preview_sha256'=sha256 and metadata->'inspection'->>'status'='PASS';if not found then raise exception 'PREPARED_NOT_VERIFIED';end if;
  elsif rev.body->>'input_mode' is distinct from 'text' or coalesce(length(trim(rev.body->>'public_text')),0)=0 then raise exception 'PUBLIC_INPUT_REQUIRED';end if;
  update lab.checkpoint_revisions set status='approved',input_hash=lab_private.hash(rev.body-'reference_idea_md'-'reference_location'-'recognition_scope'-'private_notes'),reference_hash=lab_private.hash(rev.body->'reference_idea_md'),approved_by=a,approved_at=now(),body=body||jsonb_build_object('approval',jsonb_build_object('checks',p->'checks','hash',lab_private.hash(rev.body),'actor',a,'at',now())) where id=rev.id returning id into rid;v=jsonb_build_object('id',rid);
+ else raise exception 'WRITE_ACTION_INVALID';end case;
+ return jsonb_build_object('result',v,'resource_id',rid);
+end $$;
+revoke execute on function lab_private.write_papers(uuid,uuid,text,jsonb) from public,anon,authenticated;
+grant execute on function lab_private.write_papers(uuid,uuid,text,jsonb) to service_role;
+create function lab_private.write_assets(w uuid,a uuid,action text,p jsonb) returns jsonb language plpgsql security invoker set search_path='' as $$
+declare m lab.members;h text;prior lab_private.idempotency_requests;v jsonb;rid uuid;pid uuid;cid uuid;ver integer;rev lab.checkpoint_revisions;pl lab.plans;gen text;judge text;rp integer;jid uuid;other text;item jsonb;k integer;rr integer;proto jsonb;models jsonb;dt timestamptz;budget lab_private.usage_budgets;cap jsonb;estimated_bytes bigint=0;max_output_bytes bigint=131072;
+begin
+ m=lab_private.actor(w,a);
+ case action
  when 'asset_batch_reserve' then
  v=lab_private.reserve_batch(w,a,p);
  when 'asset_failed' then update lab.assets set status='failed' where workspace_id=w and id=(p->>'id')::uuid and status='reserved' and created_by=a;v=jsonb_build_object('saved',true);
@@ -79,6 +87,16 @@ begin
  rid=gen_random_uuid();insert into lab.assets(id,workspace_id,paper_id,kind,path,bytes,sha256,metadata,created_by) values(rid,w,(p->>'paper_id')::uuid,p->>'kind',w::text||'/'||rid::text||'/'||case when p->>'kind'='prepared' then 'public.pdf' else 'source.pdf' end,(p->>'bytes')::bigint,p->>'sha256',coalesce(p->'metadata','{}'),a);select to_jsonb(s) into v from lab.assets s where id=rid;
  when 'asset_verified' then
  update lab.assets s set status='verified',server_hash=coalesce((p->>'server_hash')::boolean,false),metadata=metadata||coalesce(p->'metadata','{}') where workspace_id=w and id=(p->>'id')::uuid and status in('reserved','verified') returning to_jsonb(s) into v;if v is null then raise exception 'NOT_FOUND';end if;
+ else raise exception 'WRITE_ACTION_INVALID';end case;
+ return jsonb_build_object('result',v,'resource_id',rid);
+end $$;
+revoke execute on function lab_private.write_assets(uuid,uuid,text,jsonb) from public,anon,authenticated;
+grant execute on function lab_private.write_assets(uuid,uuid,text,jsonb) to service_role;
+create function lab_private.write_plans(w uuid,a uuid,action text,p jsonb) returns jsonb language plpgsql security invoker set search_path='' as $$
+declare m lab.members;h text;prior lab_private.idempotency_requests;v jsonb;rid uuid;pid uuid;cid uuid;ver integer;rev lab.checkpoint_revisions;pl lab.plans;gen text;judge text;rp integer;jid uuid;other text;item jsonb;k integer;rr integer;proto jsonb;models jsonb;dt timestamptz;budget lab_private.usage_budgets;cap jsonb;estimated_bytes bigint=0;max_output_bytes bigint=131072;
+begin
+ m=lab_private.actor(w,a);
+ case action
  when 'plan_create' then
  perform lab_private.admit();
  k=(p->>'k')::integer;rr=(p->>'repeats')::integer;if k not between 1 and 10 or rr not between 1 and 10 or jsonb_array_length(p->'revision_ids')<1 then raise exception 'PLAN_RANGE';end if;
@@ -113,6 +131,16 @@ begin
  select * into pl from lab.plans where workspace_id=w and id=(p->>'id')::uuid for update;if not found or(pl.created_by<>a and m.role<>'admin') then raise exception 'FORBIDDEN_PLAN_OWNER';end if;
  if p->>'status' not in('paused','running','cancelled') or pl.status in('cancelled','complete') then raise exception 'PLAN_STATE';end if;
  update lab.plans set status=p->>'status' where id=pl.id;v=jsonb_build_object('id',pl.id,'status',p->>'status');
+ else raise exception 'WRITE_ACTION_INVALID';end case;
+ return jsonb_build_object('result',v,'resource_id',rid);
+end $$;
+revoke execute on function lab_private.write_plans(uuid,uuid,text,jsonb) from public,anon,authenticated;
+grant execute on function lab_private.write_plans(uuid,uuid,text,jsonb) to service_role;
+create function lab_private.write_admin(w uuid,a uuid,action text,p jsonb) returns jsonb language plpgsql security invoker set search_path='' as $$
+declare m lab.members;h text;prior lab_private.idempotency_requests;v jsonb;rid uuid;pid uuid;cid uuid;ver integer;rev lab.checkpoint_revisions;pl lab.plans;gen text;judge text;rp integer;jid uuid;other text;item jsonb;k integer;rr integer;proto jsonb;models jsonb;dt timestamptz;budget lab_private.usage_budgets;cap jsonb;estimated_bytes bigint=0;max_output_bytes bigint=131072;
+begin
+ m=lab_private.actor(w,a);
+ case action
  when 'member_save' then perform lab_private.actor(w,a,true);if p->>'role' not in('admin','researcher') then raise exception 'ROLE_INVALID';end if;
  if lower(p->>'email')=m.id_email and (p->>'role'<>'admin' or p->>'active'='false') then raise exception 'SELF_ADMIN_REMOVAL_BLOCKED';end if;
  insert into lab_private.email_allowlist values(w,lower(p->>'email'),p->>'role',coalesce((p->>'active')::boolean,true)) on conflict(workspace_id,email) do update set role=excluded.role,active=excluded.active;
@@ -123,6 +151,16 @@ begin
  when 'budget_save' then perform lab_private.actor(w,a,true);insert into lab_private.usage_budgets(workspace_id,provider,enabled,budget_usd,org_verified_at) values(w,p->>'provider',(p->>'enabled')::boolean,(p->>'budget_usd')::numeric,case when p->>'org_verified'='true' then now() else null end) on conflict(workspace_id,provider) do update set enabled=excluded.enabled,budget_usd=excluded.budget_usd,org_verified_at=excluded.org_verified_at;v=jsonb_build_object('saved',true);
  when 'workspace_settings' then perform lab_private.actor(w,a,true);update lab.workspaces set settings=settings||jsonb_build_object('api_enabled',coalesce((p->>'api_enabled')::boolean,false),'scheduler_enabled',coalesce((p->>'scheduler_enabled')::boolean,false),'app_origin',p->>'app_origin') where id=w;update lab_private.scheduler_state set enabled=coalesce((p->>'scheduler_enabled')::boolean,false);v=jsonb_build_object('saved',true);
  when 'provider_pause' then perform lab_private.actor(w,a,true);update lab_private.provider_runtime set paused=(p->>'paused')::boolean,blocked_reason=case when p->>'paused'='true' then 'ADMIN_PAUSED' else null end where provider=p->>'provider';v=jsonb_build_object('saved',true);
+ else raise exception 'WRITE_ACTION_INVALID';end case;
+ return jsonb_build_object('result',v,'resource_id',rid);
+end $$;
+revoke execute on function lab_private.write_admin(uuid,uuid,text,jsonb) from public,anon,authenticated;
+grant execute on function lab_private.write_admin(uuid,uuid,text,jsonb) to service_role;
+create function lab_private.write_research(w uuid,a uuid,action text,p jsonb) returns jsonb language plpgsql security invoker set search_path='' as $$
+declare m lab.members;h text;prior lab_private.idempotency_requests;v jsonb;rid uuid;pid uuid;cid uuid;ver integer;rev lab.checkpoint_revisions;pl lab.plans;gen text;judge text;rp integer;jid uuid;other text;item jsonb;k integer;rr integer;proto jsonb;models jsonb;dt timestamptz;budget lab_private.usage_budgets;cap jsonb;estimated_bytes bigint=0;max_output_bytes bigint=131072;
+begin
+ m=lab_private.actor(w,a);
+ case action
  when 'analysis_create' then
  v=lab_private.analysis(w,p);if pg_database_size(current_database())+octet_length(v::text)*2>400000000 then raise exception 'DB_SNAPSHOT_CAPACITY';end if;
  insert into lab.analysis_snapshots(workspace_id,filters,body,sha256,created_by) values(w,p,v,lab_private.hash(v),a) returning id into rid;v=jsonb_build_object('id',rid,'sha256',lab_private.hash(v));
@@ -136,6 +174,24 @@ begin
  when 'backup_create' then perform lab_private.actor(w,a,true);v=lab_private.backup(w);if pg_database_size(current_database())+octet_length(v::text)*2>400000000 then raise exception 'BACKUP_DB_CAPACITY';end if;insert into lab.backup_manifests(workspace_id,body,created_by) values(w,v,a) returning id into rid;v=jsonb_build_object('id',rid,'workspace',v->'workspace','format','tisiif-backup-v3');
  when 'backup_downloaded' then perform lab_private.actor(w,a,true);if p->>'all_parts_downloaded'<>'true' then raise exception 'DOWNLOAD_CONFIRMATION_REQUIRED';end if;update lab.backup_manifests set status='downloaded',downloaded_at=now() where workspace_id=w and id=(p->>'id')::uuid and created_by=a;v=jsonb_build_object('saved',true);
  else raise exception 'WRITE_ACTION_INVALID';end case;
+ return jsonb_build_object('result',v,'resource_id',rid);
+end $$;
+revoke execute on function lab_private.write_research(uuid,uuid,text,jsonb) from public,anon,authenticated;
+grant execute on function lab_private.write_research(uuid,uuid,text,jsonb) to service_role;
+create function public.lab_write(w uuid,a uuid,action text,p jsonb,idem text) returns jsonb language plpgsql security invoker set search_path='' as $$
+declare m lab.members;h text;prior lab_private.idempotency_requests;v jsonb;rid uuid;pid uuid;cid uuid;ver integer;rev lab.checkpoint_revisions;pl lab.plans;gen text;judge text;rp integer;jid uuid;other text;item jsonb;k integer;rr integer;proto jsonb;models jsonb;dt timestamptz;budget lab_private.usage_budgets;cap jsonb;estimated_bytes bigint=0;max_output_bytes bigint=131072;
+begin
+ m=lab_private.actor(w,a);if length(idem)<8 or length(idem)>200 then raise exception 'IDEMPOTENCY_REQUIRED';end if;
+ perform pg_advisory_xact_lock(hashtextextended(w::text||a::text||idem,0));h=case when action='key_store' then p->>'request_hash' else lab_private.hash(jsonb_build_object('action',action,'payload',p)) end;select * into prior from lab_private.idempotency_requests where workspace_id=w and actor=a and key=idem;
+ if found then if prior.payload_hash<>h then raise exception 'IDEMPOTENCY_CONFLICT';end if;return prior.result;end if;
+ case
+ when action in('paper_create','paper_update','checkpoint_create','revision_clone','revision_save','revision_approve') then cap=lab_private.write_papers(w,a,action,p);
+ when action in('asset_batch_reserve','asset_failed','asset_reserve','asset_verified') then cap=lab_private.write_assets(w,a,action,p);
+ when action in('plan_create','plan_control') then cap=lab_private.write_plans(w,a,action,p);
+ when action in('member_save','model_save','model_enable','key_store','budget_save','workspace_settings','provider_pause') then cap=lab_private.write_admin(w,a,action,p);
+ when action in('analysis_create','review_submit','backup_create','backup_downloaded') then cap=lab_private.write_research(w,a,action,p);
+ else raise exception 'WRITE_ACTION_INVALID';end case;
+ v=cap->'result';rid=(cap->>'resource_id')::uuid;
  insert into lab_private.idempotency_requests values(w,a,idem,h,v,now());insert into lab.audit_events(workspace_id,actor,action,resource_id) values(w,a,action,rid);return v;
 end $$;
 create function public.lab_asset(w uuid,a uuid,asset_id uuid) returns jsonb language plpgsql security invoker set search_path='' as $$ declare v jsonb;begin perform lab_private.actor(w,a);select to_jsonb(s) into v from lab.assets s where workspace_id=w and id=asset_id;if v is null then raise exception 'NOT_FOUND';end if;return v;end $$;
