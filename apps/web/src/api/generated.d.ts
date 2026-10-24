@@ -636,6 +636,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/review-reliability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Reliability */
+        get: operations["reliability_api_v1_review_reliability_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/providers": {
         parameters: {
             query?: never;
@@ -2764,6 +2781,39 @@ export interface operations {
             };
         };
     };
+    reliability_api_v1_review_reliability_get: {
+        parameters: {
+            query?: {
+                batch_id?: string;
+            };
+            header?: {
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     providers_api_v1_admin_providers_get: {
         parameters: {
             query?: never;
@@ -3344,6 +3394,12 @@ export interface operations {
                 include_human_corrected?: boolean;
                 common?: boolean;
                 group_hash?: string;
+                paper_id?: string;
+                checkpoint_revision_id?: string;
+                generator_provider?: string;
+                repeat_no?: number;
+                status?: string;
+                review_flag?: boolean;
             };
             header?: {
                 authorization?: string;
@@ -3386,6 +3442,9 @@ export interface operations {
                 repeat_no?: number;
                 cursor?: number;
                 limit?: number;
+                status?: string;
+                review_flag?: boolean;
+                group_hash?: string;
             };
             header?: {
                 authorization?: string;

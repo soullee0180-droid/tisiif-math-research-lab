@@ -68,7 +68,7 @@ def process_aux(job):
         try:
             with tempfile.TemporaryDirectory() as d:
                 root=Path(d)
-                companion=None
+                companion=None;parts=[]
                 if export["kind"]=="xlsx":
                     with transaction() as conn:
                         conn.execute("set transaction isolation level repeatable read, read only")
@@ -89,10 +89,10 @@ def process_aux(job):
                     path=root/"research.zip"
                     write_archive(actor,export["filters"],path,include_source=payload.get("include_source",True),
                                   external=export["kind"]=="external_zip")
-                    asset=storage.persist_path(actor,"export",path,"research.zip","application/zip")
+                    asset,parts=storage.persist_bundle(actor,"export",path,"research.zip","application/zip")
             with transaction() as conn:
                 conn.execute("update lab.exports set status='completed',asset_id=%s,metadata=%s where workspace_id=%s and id=%s",
-                    (asset["id"],value({"companion_asset_id":str(companion["id"]) if companion else None}),ws,export["id"]))
+                    (asset["id"],value({"companion_asset_id":str(companion["id"]) if companion else None,"parts":parts}),ws,export["id"]))
             finish(job,{"asset_id":asset["id"],"companion_asset_id":companion["id"] if companion else None})
         except Exception:
             with transaction() as conn:conn.execute("update lab.exports set status='failed' where workspace_id=%s and id=%s",(ws,export["id"]))
@@ -104,7 +104,7 @@ def process_aux(job):
             path=Path(d)/"backup.zip"
             if payload.get("action")=="restore":
                 with transaction() as conn:asset=one(conn,"select * from lab.assets where workspace_id=%s and id=%s",(ws,payload["asset_id"]))
-                storage.download_to(asset,path)
+                storage.download_bundle(asset,path)
                 manifest=verify_archive(path)
                 if digest(manifest)!=payload["manifest_hash"]:raise ValueError("RESTORE_MANIFEST_CHANGED")
                 result=restore_archive(path,actor)
@@ -119,7 +119,7 @@ def process_aux(job):
             try:
                 manifest=write_archive(actor,{},path,include_source=payload.get("include_source",True),backup=True)
                 verify_archive(path)
-                asset=storage.persist_path(actor,"research_backup",path,"research-backup.zip","application/zip")
+                asset,parts=storage.persist_bundle(actor,"research_backup",path,"research-backup.zip","application/zip")
                 # A second durable copy is separate from the Supabase project.
                 backup_dir=Path(settings().backup_dir);backup_dir.mkdir(parents=True,exist_ok=True)
                 import shutil
@@ -128,12 +128,14 @@ def process_aux(job):
                 with local.open("rb") as f:
                     import hashlib
                     sha=hashlib.file_digest(f,"sha256").hexdigest()
-                if sha!=asset["sha256"]:raise ValueError("LOCAL_BACKUP_HASH_MISMATCH")
+                with path.open("rb") as source:
+                    expected_sha=hashlib.file_digest(source,"sha256").hexdigest()
+                if sha!=expected_sha:raise ValueError("LOCAL_BACKUP_HASH_MISMATCH")
                 for old in sorted(backup_dir.glob("*.zip"),key=lambda p:p.stat().st_mtime,reverse=True)[3:]:
                     old.unlink()
                 with transaction() as conn:
                     conn.execute("update lab.backup_runs set status='completed',manifest_sha256=%s,byte_size=%s,finished_at=now(),metadata=%s where workspace_id=%s and id=%s",
-                        (digest(manifest),asset["byte_size"],value({"asset_id":str(asset["id"]),"local_copy_hash":sha}),ws,run["id"]))
+                        (digest(manifest),path.stat().st_size,value({"asset_id":str(asset["id"]),"local_copy_hash":sha,"parts":parts,"archive_bytes":path.stat().st_size}),ws,run["id"]))
                 finish(job,{"asset_id":asset["id"],"manifest_hash":digest(manifest)})
             except Exception:
                 with transaction() as conn:conn.execute("update lab.backup_runs set status='failed',error_message='백업 생성 실패',finished_at=now() where workspace_id=%s and id=%s",(ws,run["id"]))
@@ -183,6 +185,7 @@ def schedule_backup():
         if not actor:return
         exists=one(conn,"""select id from lab.jobs where workspace_id=%s and phase='backup'
             and payload->>'action' is distinct from 'restore'
+            and (status<>'failed' or updated_at>now()-interval '30 minutes')
             and (created_at at time zone 'Asia/Seoul')::date=%s limit 1""",(cfg.default_workspace_id,now.date()))
         if exists:return
         insert(conn,"lab.jobs",dict(workspace_id=cfg.default_workspace_id,phase="backup",status="queued",

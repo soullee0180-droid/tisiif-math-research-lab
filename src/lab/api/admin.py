@@ -165,7 +165,7 @@ def health(user=Depends(admin_user)):
     with transaction() as conn:
         beats=many(conn,"select * from lab.worker_heartbeats where workspace_id=%s",(user["workspace_id"],))
         backup=one(conn,"select * from lab.backup_runs where workspace_id=%s order by started_at desc limit 1",(user["workspace_id"],))
-        restore=one(conn,"select created_at,safe_detail from lab.audit_events where workspace_id=%s and action='workspace.restored' order by created_at desc limit 1",(user["workspace_id"],))
+        restore=one(conn,"select created_at,safe_detail from lab.audit_events where workspace_id=%s and action in ('workspace.restored','workspace.restore.verified') order by created_at desc limit 1",(user["workspace_id"],))
         buckets=many(conn,"select id,public,file_size_limit from storage.buckets where id=any(%s)",(["lab-source","lab-prepared","lab-artifacts","lab-exports"],))
     return {"build_sha":cfg.build_sha or None,"database":True,"settings_present":cfg.check(),"heartbeats":beats,
             "latest_backup":backup,"latest_restore":restore,"buckets":buckets,"independent_copy":"별도 보관 확인 필요"}
@@ -188,7 +188,7 @@ def restore_preflight(body:RestoreBody,user=Depends(admin_user)):
     with transaction() as conn:asset=get(conn,"assets",body.asset_id,user["workspace_id"])
     if asset["kind"]!="research_backup":fail("RESEARCH_BACKUP_REQUIRED","연구 백업 파일을 선택해 주세요.")
     with tempfile.TemporaryDirectory() as d:
-        path=Path(d)/"backup.zip";Storage().download_to(asset,path)
+        path=Path(d)/"backup.zip";Storage().download_bundle(asset,path)
         manifest=verify_archive(path)
     return {"manifest_hash":digest(manifest),"table_counts":manifest["table_counts"],
             "asset_count":len(manifest["assets"]),"target":"new_inactive_workspace"}

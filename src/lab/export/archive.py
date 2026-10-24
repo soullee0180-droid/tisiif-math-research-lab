@@ -272,7 +272,8 @@ def restore_archive(path,user):
                         elif row["status"]=="leased":row["status"]="queued"
                         row["lease_owner"]=None;row["lease_expires_at"]=None
                         # Auxiliary export/backup jobs point to regenerable outputs not carried by the archive.
-                        if row["phase"] in ("export","backup"):continue
+                        if row["phase"] in ("export","backup"):
+                            row["status"]="cancelled";row["error_class"]="restored_regenerable_output"
                     insert(conn,"lab."+table,row_types(row))
             for job,attempt in pending_accept:
                 conn.execute("update lab.jobs set accepted_attempt_id=%s where workspace_id=%s and id=%s",(attempt,new_ws,job))

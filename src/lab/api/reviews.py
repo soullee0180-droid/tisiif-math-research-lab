@@ -106,3 +106,36 @@ def submit(ident:UUID,body:ReviewSubmit,user=Depends(current_user)):
         audit(conn,user,"human_review.submit","review_assignment",ident,{"phase":body.phase,"revision":previous+1})
         return {"id":row["id"],"revision_no":previous+1}
 
+@router.get('/review-reliability')
+def reliability(batch_id:str='',user=Depends(current_user)):
+    with transaction() as conn:
+        if batch_id:get(conn,'review_batches',batch_id,user['workspace_id'])
+        assignments=many(conn,"""select a.*,i.run_id,i.ordinal from lab.review_assignments a
+            join lab.ideas i on i.id=a.idea_id and i.workspace_id=a.workspace_id
+            where a.workspace_id=%s and a.phase='done' and (%s='' or a.review_batch_id::text=%s)""",(user['workspace_id'],batch_id,batch_id))
+        rows=[]
+        for a in assignments:
+            human=many(conn,'select * from lab.human_reviews where workspace_id=%s and assignment_id=%s and revision_no=1',(user['workspace_id'],a['id']))
+            u=many(conn,"""select u.score from lab.usefulness_ratings u join lab.jobs j
+                on j.accepted_attempt_id=u.source_attempt_id and j.workspace_id=u.workspace_id
+                where u.workspace_id=%s and u.run_id=%s and u.idea_ordinal=%s""",(user['workspace_id'],a['run_id'],a['ordinal']))
+            m=many(conn,"""select m.label from lab.agreement_ratings m join lab.jobs j
+                on j.accepted_attempt_id=m.source_attempt_id and j.workspace_id=m.workspace_id
+                where m.workspace_id=%s and m.run_id=%s and m.idea_ordinal=%s""",(user['workspace_id'],a['run_id'],a['ordinal']))
+            rows.append((a,human,u,m))
+    strata={}
+    for a,human,u,m in rows:
+        bucket=strata.setdefault(a['stratum'],{'diff':[],'score_equal':[],'label_equal':[],'assignments':0})
+        bucket['assignments']+=1
+        hu=next((h for h in human if h['phase']=='usefulness'),None)
+        hm=next((h for h in human if h['phase']=='agreement'),None)
+        if hu and hu['score'] is not None and len(u)==2 and all(x['score'] is not None for x in u):
+            ai=sum(x['score'] for x in u)/2
+            bucket['diff'].append(abs(hu['score']-ai));bucket['score_equal'].append(hu['score']==ai)
+        if hm and hm['agreement_label']!='undetermined':
+            bucket['label_equal'] += [x['label']==hm['agreement_label'] for x in m if x['label']!='undetermined']
+    def mean(xs):return sum(xs)/len(xs) if xs else None
+    return {'basis':'first_independent_judgment','items':[{'stratum':key,'completed_judgments':b['assignments'],
+        'mean_absolute_score_difference':mean(b['diff']),'score_exact_rate':mean(b['score_equal']),
+        'score_n':len(b['diff']),'agreement_exact_rate':mean(b['label_equal']),'agreement_n':len(b['label_equal'])}
+        for key,b in sorted(strata.items())]}

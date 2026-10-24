@@ -21,7 +21,7 @@ def test_identity(token):
         data = json.loads(base64.urlsafe_b64decode(encoded + "=" * (-len(encoded) % 4)))
     except (ValueError, KeyError):
         return None
-    if data["exp"] < datetime.now(timezone.utc).timestamp(): return None
+    if not isinstance(data,dict) or not isinstance(data.get("exp"),(int,float)) or data["exp"] < datetime.now(timezone.utc).timestamp(): return None
     return data
 
 def current_user(authorization: str = Header(default="")):

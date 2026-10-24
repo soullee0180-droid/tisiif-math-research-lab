@@ -74,9 +74,16 @@ def test_full_flow_permissions_blinding_excel_restore(client,tmp_path):
     actor={'workspace_id':WS,'user_id':ADMIN}
     path=tmp_path/'backup.zip';manifest=write_archive(actor,filters,path,True,backup=True)
     assert verify_archive(path)['table_counts']['ideas']==30
-    restored=restore_archive(path,actor);assert not restored['active']
+    bundle,parts=Storage().persist_bundle(actor,'research_backup',path,'backup.zip','application/zip',part_size=4096)
+    assert parts and bundle['mime_type']=='application/json'
+    joined=tmp_path/'joined.zip';Storage().download_bundle(bundle,joined)
+    assert digest(joined.read_bytes())==digest(path.read_bytes())
+    restored=restore_archive(joined,actor);assert not restored['active']
     with transaction() as conn:
         ws=restored['workspace_id']
+        for table,count in manifest['table_counts'].items():
+            actual=one(conn,'select count(*) n from lab.'+table+' where workspace_id=%s',(ws,))['n']
+            assert actual==count+(1 if table=='audit_events' else 0),(table,actual,count)
         assert one(conn,'select count(*) n from lab.ideas where workspace_id=%s',(ws,))['n']==30
         assert one(conn,'select count(*) n from lab.attempts where workspace_id=%s',(ws,))['n']==36
         assert {p['status'] for p in many(conn,'select status from lab.plans where workspace_id=%s',(ws,))}=={'paused'}

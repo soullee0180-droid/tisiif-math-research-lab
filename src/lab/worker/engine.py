@@ -140,8 +140,7 @@ def heartbeat(job,worker):
                 with transaction() as conn:
                     conn.execute("update lab.jobs set heartbeat_at=now(),lease_expires_at=now()+interval '90 seconds' where id=%s and workspace_id=%s and lease_owner=%s",
                                  (job['id'],job['workspace_id'],worker))
-                    conn.execute('update lab.worker_heartbeats set heartbeat_at=now(),active_jobs=1 where workspace_id=%s and worker_name=%s',
-                                 (job['workspace_id'],worker))
+
             except Exception: pass
     thread=threading.Thread(target=beat,daemon=True);thread.start()
     try: yield
@@ -259,7 +258,8 @@ def record_failure(job,attempt,error):
             cls=error.error_class
             state='unknown_remote' if error.remote_uncertain else 'waiting_rate' if cls in ('rate_transient','quota_daily') else 'blocked'
             seconds=error.retry_after if cls=='rate_transient' else None
-            if cls=='rate_transient' and seconds is None: seconds=60
+            if cls=='rate_transient' and seconds is None: seconds=min(300,15*2**min(attempt['attempt_no'] if attempt else 1,4))
+            if cls=='rate_transient' and attempt and attempt['attempt_no']>=4:state='blocked'
             if cls=='quota_daily' and seconds is None: state='blocked'
             if state=='blocked':
                 conn.execute('update lab_private.provider_runtime set blocked_reason=%s where provider=%s',(cls,job['provider']))
@@ -298,15 +298,30 @@ def run_worker():
         conn.execute("""insert into lab.worker_heartbeats(workspace_id,worker_name,build_sha,heartbeat_at)
             values(%s,%s,%s,now()) on conflict(workspace_id,worker_name) do update set build_sha=excluded.build_sha,heartbeat_at=now()""",
             (cfg.default_workspace_id,cfg.worker_name,cfg.build_sha))
-    while not STOP.is_set():
+    from concurrent.futures import ThreadPoolExecutor
+    def execute(claimed):
+        job,attempt=claimed
         try:
-            with transaction() as conn:
-                conn.execute('update lab.worker_heartbeats set heartbeat_at=now(),active_jobs=0 where workspace_id=%s and worker_name=%s',
-                             (cfg.default_workspace_id,cfg.worker_name))
-            from lab.worker.tasks import schedule_backup
-            schedule_backup()
-            if not tick(cfg.worker_name): STOP.wait(2)
-        except Exception:
-            # Never log DB URLs, keys, request bodies, or raw exception text.
-            print('{"event":"worker_cycle_failed","details":"redacted"}',flush=True)
-            STOP.wait(5)
+            with heartbeat(job,cfg.worker_name):process(job,attempt)
+        except Exception as error:record_failure(job,attempt,error)
+    # Keep peak PDF/base64 memory bounded on the minimum 2 GiB instance.
+    with ThreadPoolExecutor(max_workers=4,thread_name_prefix="research") as executor:
+        pending=set()
+        while not STOP.is_set():
+            try:
+                pending={f for f in pending if not f.done()}
+                with transaction() as conn:
+                    conn.execute('update lab.worker_heartbeats set heartbeat_at=now(),active_jobs=%s where workspace_id=%s and worker_name=%s',
+                                 (len(pending),cfg.default_workspace_id,cfg.worker_name))
+                from lab.worker.tasks import schedule_backup
+                schedule_backup();recover()
+                while len(pending)<4 and not STOP.is_set():
+                    claimed=claim(cfg.worker_name)
+                    if not claimed:break
+                    pending.add(executor.submit(execute,claimed))
+                STOP.wait(1 if pending else 2)
+            except Exception:
+                print('{"event":"worker_cycle_failed","details":"redacted"}',flush=True)
+                STOP.wait(5)
+        # Stop claiming immediately. In-flight tasks retain their leases until durable save;
+        # a platform hard stop is recovered as saved response or unknown_remote.

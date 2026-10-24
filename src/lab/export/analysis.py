@@ -66,6 +66,8 @@ def selected_runs(conn, user, filters):
         run.update(ideas=ideas,selection=selection,metrics=met,jobs=jobs_by[rid],
                    group_hash=digest(group),group_condition=group)
         result.append(run)
+    if filters.get("status"):result=[r for r in result if r["status"]==filters["status"]]
+    if filters.get("review_flag"):result=[r for r in result if r["metrics"].get("review_flags")]
     if filters.get("group_hash"):result=[r for r in result if r["group_hash"]==filters["group_hash"]]
     return result
 

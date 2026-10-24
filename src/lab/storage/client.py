@@ -142,3 +142,44 @@ class Storage:
                 bucket=bucket,object_path=name,original_name=filename,mime_type=mime,sha256=h.hexdigest(),
                 byte_size=path.stat().st_size,status='verified',created_by=user['user_id'],verified_at=datetime.now(timezone.utc)))
 
+
+    def persist_bundle(self,user,kind,path,filename,mime,part_size=40*1024*1024):
+        """A JSON manifest plus bounded binary parts when the export exceeds one object."""
+        import tempfile
+        import json
+        path=Path(path)
+        if path.stat().st_size<=part_size:
+            return self.persist_path(user,kind,path,filename,mime),[]
+        parts=[];total=hashlib.sha256()
+        with tempfile.TemporaryDirectory() as directory:
+            with path.open('rb') as source:
+                index=0
+                while chunk:=source.read(part_size):
+                    index+=1;total.update(chunk)
+                    part=Path(directory)/'part';part.write_bytes(chunk)
+                    asset=self.persist_path(user,kind,part,filename+'.part'+str(index).zfill(4),'application/octet-stream')
+                    parts.append({'asset_id':str(asset['id']),'name':asset['original_name'],'sha256':asset['sha256'],'bytes':asset['byte_size']})
+        manifest={'format':'tisiif-split-archive-v1','name':filename,'bytes':path.stat().st_size,'sha256':total.hexdigest(),'parts':parts}
+        main=self.persist(user,kind,__import__('json').dumps(manifest).encode(),filename+'.manifest.json','application/json')
+        return main,parts
+
+    def download_bundle(self,asset,path):
+        import json
+        import tempfile
+        if asset['mime_type']!='application/json':return self.download_to(asset,path)
+        manifest=json.loads(self.get(asset))
+        if manifest.get('format')!='tisiif-split-archive-v1' or not 1<=len(manifest.get('parts',[]))<=1024:
+            raise ValueError('INVALID_SPLIT_ARCHIVE')
+        total=hashlib.sha256();size=0
+        with tempfile.TemporaryDirectory() as directory:
+            with open(path,'wb') as target:
+                for expected in manifest['parts']:
+                    with transaction() as conn:
+                        part=one(conn,'select * from lab.assets where workspace_id=%s and id=%s',(asset['workspace_id'],expected['asset_id']))
+                    if not part or part['kind']!=asset['kind'] or part['sha256']!=expected['sha256'] or part['byte_size']!=expected['bytes']:
+                        raise ValueError('SPLIT_ARCHIVE_PART_MISMATCH')
+                    local=Path(directory)/'part';self.download_to(part,local)
+                    with local.open('rb') as f:
+                        for chunk in iter(lambda:f.read(1024*1024),b''):target.write(chunk);total.update(chunk);size+=len(chunk)
+        if total.hexdigest()!=manifest['sha256'] or size!=manifest['bytes']:
+            raise ValueError('SPLIT_ARCHIVE_HASH_MISMATCH')

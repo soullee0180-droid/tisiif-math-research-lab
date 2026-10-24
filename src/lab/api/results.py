@@ -14,20 +14,20 @@ def filters_for(plan_id="",transport="api",include_fixture=False,include_human_c
 
 @router.get("/results/summary")
 def summary(plan_id:str="",transport:str="api",include_fixture:bool=False,include_human_corrected:bool=False,
-            common:bool=True,group_hash:str="",user=Depends(current_user)):
+            common:bool=True,group_hash:str="",paper_id:str="",checkpoint_revision_id:str="",generator_provider:str="",repeat_no:int=0,status:str="",review_flag:bool=False,user=Depends(current_user)):
     with transaction() as conn:
         conn.execute("set transaction isolation level repeatable read, read only")
-        rows=selected_runs(conn,user,filters_for(plan_id,transport,include_fixture,include_human_corrected))
+        rows=selected_runs(conn,user,filters_for(plan_id,transport,include_fixture,include_human_corrected,paper_id=paper_id,checkpoint_revision_id=checkpoint_revision_id,generator_provider=generator_provider,repeat_no=repeat_no,status=status,review_flag=review_flag))
     return summarize(rows,common,group_hash or None)
 
 @router.get("/results/ideas")
 def ideas(plan_id:str="",transport:str="api",include_fixture:bool=False,include_human_corrected:bool=False,
           generator_provider:str="",paper_id:str="",checkpoint_revision_id:str="",repeat_no:int=0,
-          cursor:int=0,limit:int=25,user=Depends(current_user)):
+          cursor:int=0,limit:int=25,status:str="",review_flag:bool=False,group_hash:str="",user=Depends(current_user)):
     with transaction() as conn:
         conn.execute("set transaction isolation level repeatable read, read only")
         rows=selected_runs(conn,user,filters_for(plan_id,transport,include_fixture,include_human_corrected,
-            generator_provider=generator_provider,paper_id=paper_id,checkpoint_revision_id=checkpoint_revision_id,repeat_no=repeat_no))
+            generator_provider=generator_provider,paper_id=paper_id,checkpoint_revision_id=checkpoint_revision_id,repeat_no=repeat_no,status=status,review_flag=review_flag,group_hash=group_hash))
     cursor=max(0,cursor);limit=min(100,max(1,limit))
     # Keep list DTO compact; full snapshots are available via /runs/:id.
     safe=[{k:r[k] for k in ("id","plan_id","paper_id","paper_code","paper_title","checkpoint_revision_id",
