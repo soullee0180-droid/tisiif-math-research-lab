@@ -10,6 +10,8 @@ from lab.domain.plans import preflight, create_plan, refresh_progress
 from lab.domain.research import canonical, parse_output, PROVIDERS
 from lab.storage.client import Storage
 
+from lab.api.dto import PlanCreatedDTO
+
 router=APIRouter()
 @router.get('/experiment-inputs')
 def experiment_inputs(user=Depends(current_user)):
@@ -34,7 +36,7 @@ def preview(body:PlanBody,user=Depends(current_user)):
         result.pop("frozen")
         return result
 
-@router.post("/plans")
+@router.post("/plans",response_model=PlanCreatedDTO)
 def create(body:PlanBody,request:Request,user=Depends(current_user)):
     with transaction() as conn:
         def action(key):

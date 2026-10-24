@@ -91,6 +91,8 @@ def test_full_flow_permissions_blinding_excel_restore(client,tmp_path):
         old=many(conn,'select display_seed from lab.runs where workspace_id=%s order by display_seed',(WS,))
         new=many(conn,'select display_seed from lab.runs where workspace_id=%s order by display_seed',(ws,))
         assert old==new
+        foreign_asset=one(conn,'select id from lab.assets where workspace_id=%s limit 1',(ws,))['id']
+    assert client.get('/api/v1/assets/'+str(foreign_asset)+'/download').status_code==404
     # SQL guards remain authoritative even if an application route regresses.
     with pytest.raises(psycopg.Error):
         with transaction() as conn:conn.execute("update lab.checkpoint_revisions set goal_md='tamper' where id=%s",(rev['id'],))
@@ -131,7 +133,8 @@ def test_lease_unknown_remote_and_saved_response_no_resend(client,monkeypatch):
     process(*picked)
     with transaction() as conn:assert one(conn,'select status from lab.jobs where id=%s',(second['id'],))['status']=='completed'
 
-def test_7200_job_queue_claim_bounds(client):
+@pytest.mark.timeout(900)
+def test_7200_job_queue_claim_bounds(client,tmp_path,capsys):
     _,cp,rev=seed_input(client)
     from lab.domain.plans import create_plan
     from lab.api.types import PlanBody
@@ -156,6 +159,32 @@ def test_7200_job_queue_claim_bounds(client):
     with transaction() as conn:
         assert one(conn,"select count(*) n from lab.jobs where plan_id=%s",(result['plan_id'],))['n']==7200
         assert one(conn,"select count(*) n from lab.jobs where plan_id=%s and status='leased'",(result['plan_id'],))['n']==4
+        conn.execute("update lab.jobs set lease_expires_at=now()-interval '1 second' where plan_id=%s and status='leased'",(result['plan_id'],))
+    recover()  # Simulate restart before dispatch, then finish all 7,200 actual mock stages.
+    def worker(index):
+        import time
+        while True:
+            if not tick('stress-runner-'+str(index)):
+                with transaction() as conn:
+                    state=one(conn,'select status from lab.plans where id=%s',(result['plan_id'],))['status']
+                    completed=one(conn,"select count(*) n from lab.jobs where plan_id=%s and status='completed'",(result['plan_id'],))['n']
+                if state=='completed':return
+                if state=='partial':raise AssertionError('Synthetic stress stage failed')
+                time.sleep(0.02)
+    with ThreadPoolExecutor(max_workers=4) as executor:list(executor.map(worker,range(4)))
+    with transaction() as conn:
+        assert one(conn,"select count(*) n from lab.jobs where plan_id=%s and status='completed'",(result['plan_id'],))['n']==7200
+        assert one(conn,'select count(*) n from lab.ideas')['n']==6000
+        from lab.export.analysis import selected_runs,summarize
+        rows=selected_runs(conn,{'workspace_id':WS},{'plan_ids':[result['plan_id']],'transport':'mock','include_fixture':True})
+    assert len(rows)==1200
+    summary=summarize(rows)
+    assert all(p['selected_usefulness']['eligible_runs']==400 for p in summary['summary'].values())
+    from lab.export.archive import write_excel
+    path=tmp_path/'7200-stages.xlsx';write_excel(rows,[],path)
+    book=load_workbook(path,read_only=True,data_only=True)
+    assert book['후보_아이디어'].max_row==6001 and len(book.sheetnames)==10
+    with capsys.disabled():print('Verified 7200/7200 mock stages, restart recovery, 6000 candidates, aggregation and Excel export.')
 
 def test_manual_transport_never_dispatches_and_keeps_original(client):
     _,_,rev=seed_input(client)
@@ -172,7 +201,8 @@ def test_manual_transport_never_dispatches_and_keeps_original(client):
     ident=str(job['id']);prompt=request(client,'/jobs/'+ident+'/manual-prompt')
     assert 'HIDDEN_CANARY' not in prompt['prompt']
     from lab.providers.adapters import mock_send
-    raw=mock_send(prompt['packet']).text
+    obj=json.loads(mock_send(prompt['packet']).text);obj['ideas'][0]['idea_md']='Long synthetic text.'*3500
+    raw=json.dumps(obj)
     response={'raw_text':raw,'screen_model':'Synthetic manual UI','mode':'fresh conversation','occurred_at':'2026-10-24T00:00:00+00:00','tools':'off','web_search':'off','memory':'off'}
     key=str(uuid4());accepted=request(client,'/jobs/'+ident+'/manual-response',response,key=key)
     assert accepted['accepted']
@@ -191,3 +221,55 @@ def test_manual_transport_never_dispatches_and_keeps_original(client):
         asset=one(conn,'select * from lab.assets where id=%s',(attempts[1]['raw_text_asset_id'],))
     from lab.storage.client import Storage
     assert Storage().get(asset).decode()==unstructured['raw_text']
+
+
+def test_batch_of_100_pdf_uploads_isolated_failures(client):
+    from conftest import pdf_bytes
+    raw=pdf_bytes()
+    files=[{'client_file_id':str(uuid4()),'name':'Synthetic-'+str(i)+'.pdf','byte_size':len(raw),'mime_type':'application/pdf'} for i in range(100)]
+    key=str(uuid4());body={'files':files}
+    reserved=request(client,'/uploads/reserve',body,key=key)['items']
+    assert len(reserved)==100 and len({r['object_path'] for r in reserved})==100
+    assert request(client,'/uploads/reserve',body,key=key)['items']==reserved
+    def upload(item):
+        content=b'not a PDF'+b' '*(len(raw)-9) if item==reserved[0] else raw
+        response=client.put(item['upload_endpoint'],content=content,headers={'x-signature':item['signed_upload_token']})
+        assert response.status_code==200
+        request(client,'/uploads/'+item['asset_id']+'/complete',{})
+    with ThreadPoolExecutor(max_workers=3) as executor:list(executor.map(upload,reserved))
+    for _ in range(100):assert tick('upload-verifier')
+    with transaction() as conn:
+        counts={r['status']:r['n'] for r in many(conn,"select status,count(*) n from lab.assets where kind='source_pdf' group by status")}
+    assert counts=={'verified':99,'failed':1}
+    assert request(client,'/papers?limit=100')['total']==100
+    assert client.post('/api/v1/uploads/reserve',json={'files':files+[files[0]]}).status_code==422
+
+
+def test_concurrent_registration_fairness_and_scheduling(client):
+    _,_,rev=seed_input(client)
+    from fastapi.testclient import TestClient
+    from lab.api.app import create_app
+    with TestClient(create_app()) as second:
+        second.headers['Authorization']='Bearer '+token(OTHER,'researcher@example.test')
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            a=executor.submit(create_mock,client,rev['id']);b=executor.submit(create_mock,second,rev['id'])
+            plans=[a.result(),b.result()]
+    assert plans[0]['plan_id']!=plans[1]['plan_id']
+    with transaction() as conn:
+        owners={r['created_by'] for r in many(conn,'select created_by from lab.plans')}
+    assert owners=={ADMIN,OTHER}
+    first=claim('fairness');process(*first)
+    second=claim('fairness');assert second[0]['plan_id']!=first[0]['plan_id'];process(*second)
+    for plan in plans:request(client,'/plans/'+plan['plan_id']+'/pause',{})
+    assert claim('paused-plans') is None
+    from datetime import datetime,timedelta
+    from zoneinfo import ZoneInfo
+    import time
+    local=(datetime.now(ZoneInfo('Asia/Seoul'))+timedelta(seconds=2)).replace(tzinfo=None)
+    protocol=request(client,'/protocols')['items'][0]
+    scheduled=request(client,'/plans',{'title':'Future Seoul schedule','cohort':'fixture','transport':'mock',
+        'checkpoint_revision_ids':[rev['id']],'protocol_id':protocol['id'],
+        'schedule':{'mode':'scheduled','local_datetime':local.isoformat(),'timezone':'Asia/Seoul'}})
+    assert claim('early') is None
+    time.sleep(2.1)
+    ready=claim('after-schedule');assert str(ready[0]['plan_id'])==scheduled['plan_id']

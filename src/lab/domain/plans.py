@@ -128,13 +128,15 @@ def create_plan(conn, user, body, key):
     return {"plan_id":plan["id"],"run_count":checked["run_count"],
         "logical_job_count":checked["logical_job_count"],"state":status,"frozen_sha256":plan["frozen_sha256"]}
 
-def refresh_progress(conn, workspace, plan_id):
+def refresh_progress(conn, workspace, plan_id, run_id=None):
+    # Serialize completion accounting so simultaneous last stages cannot leave a plan running.
+    one(conn,"select id from lab.plans where workspace_id=%s and id=%s for update",(workspace,plan_id))
     conn.execute("""update lab.runs r set status=case
         when not exists(select 1 from lab.jobs j where j.run_id=r.id and j.status<>'completed') then 'completed'
         when exists(select 1 from lab.jobs j where j.run_id=r.id and j.status='completed') then 'partial'
         when exists(select 1 from lab.jobs j where j.run_id=r.id and j.status in ('failed','unknown_remote','needs_review')) then 'needs_review'
         when r.transport='manual' then 'needs_input' else 'running' end
-        where workspace_id=%s and plan_id=%s""",(workspace,plan_id))
+        where workspace_id=%s and plan_id=%s and (%s::uuid is null or r.id=%s::uuid)""",(workspace,plan_id,run_id,run_id))
     counts=one(conn,"""select count(*) total,count(*) filter(where status='completed') completed,
         count(*) filter(where status in ('failed','unknown_remote','needs_review')) problem
         from lab.jobs where workspace_id=%s and plan_id=%s""",(workspace,plan_id))

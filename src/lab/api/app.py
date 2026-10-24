@@ -114,6 +114,31 @@ def create_app():
         if not index.exists():
             return JSONResponse({"error":{"code":"FRONTEND_NOT_BUILT","message":"화면 빌드가 필요합니다.","details":{}}},status_code=503)
         return FileResponse(index)
+    original_openapi=app.openapi
+    envelope_documented=False
+    def documented_openapi():
+        nonlocal envelope_documented
+        schema=original_openapi()
+        if envelope_documented:return schema
+        error_schema={"type":"object","required":["error","request_id"],"properties":{
+            "error":{"type":"object","required":["code","message","details"],"properties":{
+                "code":{"type":"string"},"message":{"type":"string"},"details":{"type":"object","additionalProperties":True}}},
+            "request_id":{"type":"string","format":"uuid"}}}
+        schema.setdefault("components",{}).setdefault("schemas",{})["ErrorEnvelope"]=error_schema
+        for path,operations in schema["paths"].items():
+            if not path.startswith("/api/v1/") or path=="/api/v1/me" or "/test-" in path:continue
+            for operation in operations.values():
+                if not isinstance(operation,dict) or "responses" not in operation:continue
+                for code,response in list(operation["responses"].items()):
+                    item=response.get("content",{}).get("application/json")
+                    if code.startswith("2") and item is not None:
+                        item["schema"]={"type":"object","required":["data","request_id"],"properties":{
+                            "data":item.get("schema",{}),"request_id":{"type":"string","format":"uuid"}}}
+                for code in ("400","401","403","404","409","422","429","500","503"):
+                    operation["responses"][code]={"description":"Request error","content":{"application/json":{"schema":{"$ref":"#/components/schemas/ErrorEnvelope"}}}}
+        envelope_documented=True
+        return schema
+    app.openapi=documented_openapi
     return app
 
 app=create_app()

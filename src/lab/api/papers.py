@@ -10,12 +10,14 @@ from lab.domain.research import digest, input_hash, input_snapshot
 from lab.storage.client import Storage
 from lab.pdf.prepare import validate_recipe, png
 
+from lab.api.dto import PaperListDTO
+
 router=APIRouter()
 def aux(conn,user,phase,payload):
     return insert(conn,"lab.jobs",dict(id=uuid4(),workspace_id=user["workspace_id"],phase=phase,
         status="queued",payload={**payload,"actor_id":str(user["user_id"])}))
 
-@router.get("/papers")
+@router.get("/papers",response_model=PaperListDTO)
 def papers(q:str="",status:str="",archived:bool=False,cursor:int=0,limit:int=25,user=Depends(current_user)):
     limit=max(1,min(100,limit));cursor=max(0,cursor)
     with transaction() as conn:

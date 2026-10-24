@@ -167,7 +167,7 @@ def accept(job,attempt,packet,response,human_corrected=False):
         with transaction() as conn:
             conn.execute('update lab.attempts set status=%s,error_class=%s where id=%s and workspace_id=%s',(status,status,attempt['id'],ws))
             conn.execute("update lab.jobs set status='needs_review',error_class=%s,lease_owner=null,lease_expires_at=null,updated_at=now() where id=%s and workspace_id=%s",(status,job['id'],ws))
-            refresh_progress(conn,ws,job['plan_id'])
+            refresh_progress(conn,ws,job['plan_id'],job.get('run_id'))
         return False
     with transaction() as conn:
         locked=one(conn,'select * from lab.jobs where id=%s and workspace_id=%s for update',(job['id'],ws))
@@ -191,7 +191,7 @@ def accept(job,attempt,packet,response,human_corrected=False):
                      (value({'human_corrected':human_corrected}),attempt['id'],ws))
         conn.execute("update lab.jobs set status='completed',accepted_attempt_id=%s,lease_owner=null,lease_expires_at=null,error_class=null,error_message=null,updated_at=now() where id=%s and workspace_id=%s",
                      (attempt['id'],job['id'],ws))
-        refresh_progress(conn,ws,job['plan_id'])
+        refresh_progress(conn,ws,job['plan_id'],job.get('run_id'))
     return True
 
 def process(job,attempt):
@@ -252,7 +252,7 @@ def record_failure(job,attempt,error):
         saved=one(conn,'select status from lab.attempts where id=%s and workspace_id=%s',(attempt['id'],ws)) if attempt else None
         if saved and saved['status']=='response_saved':
             conn.execute("update lab.jobs set status='needs_review',error_class='saved_response_processing',error_message='응답은 저장했습니다. 이 단계를 재시도하면 저장 응답을 다시 해석합니다.',lease_owner=null,lease_expires_at=null where id=%s and workspace_id=%s",(job['id'],ws))
-            if job['plan_id']: refresh_progress(conn,ws,job['plan_id'])
+            if job['plan_id']: refresh_progress(conn,ws,job['plan_id'],job.get('run_id'))
             return
         if isinstance(error,ProviderFailure):
             cls=error.error_class
@@ -278,7 +278,7 @@ def record_failure(job,attempt,error):
             conn.execute('update lab.attempts set status=%s,error_class=%s,http_status=%s,error_detail=%s where id=%s and workspace_id=%s',
                 ('unknown_remote' if state=='unknown_remote' else 'error',cls,getattr(error,'http_status',None),
                  value({'exception_type':type(error).__name__,'retry_after':seconds}),attempt['id'],ws))
-        if job['plan_id']: refresh_progress(conn,ws,job['plan_id'])
+        if job['plan_id']: refresh_progress(conn,ws,job['plan_id'],job.get('run_id'))
 
 def tick(worker):
     recover()

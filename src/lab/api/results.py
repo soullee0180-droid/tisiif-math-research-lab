@@ -7,12 +7,14 @@ from lab.api.papers import aux
 from lab.db import transaction, insert, many
 from lab.export.analysis import selected_runs,summarize
 
+from lab.api.dto import SummaryDTO
+
 router=APIRouter()
 def filters_for(plan_id="",transport="api",include_fixture=False,include_human_corrected=False,**extra):
     return {"plan_id":plan_id,"transport":transport,"include_fixture":include_fixture,
             "include_human_corrected":include_human_corrected,**{k:v for k,v in extra.items() if v}}
 
-@router.get("/results/summary")
+@router.get("/results/summary",response_model=SummaryDTO)
 def summary(plan_id:str="",transport:str="api",include_fixture:bool=False,include_human_corrected:bool=False,
             common:bool=True,group_hash:str="",paper_id:str="",checkpoint_revision_id:str="",generator_provider:str="",repeat_no:int=0,status:str="",review_flag:bool=False,user=Depends(current_user)):
     with transaction() as conn:

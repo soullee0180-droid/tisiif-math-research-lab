@@ -1,7 +1,7 @@
 # CI records immutable upstream digests in build-manifest.json.
-ARG NODE_IMAGE=node:24-bookworm-slim
-ARG PYTHON_IMAGE=python:3.12-slim-bookworm
-ARG UV_IMAGE=ghcr.io/astral-sh/uv:0.13.4
+ARG NODE_IMAGE=node@sha256:55fb5f5a527ea2c5c4a95f963e48ef90aa38c7b346054fdc8ee9957a2b55d205
+ARG PYTHON_IMAGE=python@sha256:6a0e06f5ba0b373d051aabd3fffb9b873f27f9a2a3a14bcbe37dee6f0e3bbc70
+ARG UV_IMAGE=ghcr.io/astral-sh/uv@sha256:9f130421e930bfbdc563c00740466603f8723158e90297d07957c2294640262b
 FROM ${NODE_IMAGE} AS frontend
 WORKDIR /web
 COPY apps/web/package.json apps/web/package-lock.json ./
