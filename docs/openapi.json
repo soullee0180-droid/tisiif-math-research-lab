@@ -3968,6 +3968,12 @@
       },
       "RevisionPatch": {
         "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 300,
+            "title": "Title",
+            "default": ""
+          },
           "expected_hash": {
             "type": "string",
             "title": "Expected Hash"

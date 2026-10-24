@@ -54,6 +54,12 @@ jobs:
             npx --yes supabase@2.122.0 migration new render_runtime
             cp scripts/runtime-schema.sql supabase/migrations/*_render_runtime.sql
           fi
+      - name: Generate usability migration
+        run: |
+          if ! ls supabase/migrations/*_checkpoint_title_and_archive_parts.sql >/dev/null 2>&1; then
+            npx --yes supabase@2.122.0 migration new checkpoint_title_and_archive_parts
+            cp scripts/usability-schema.sql supabase/migrations/*_checkpoint_title_and_archive_parts.sql
+          fi
       - name: Persist initial reproducible locks
         if: github.event_name == 'push'
         run: |
@@ -69,7 +75,7 @@ jobs:
       - name: Python syntax and application tests
         run: |
           uv run python -m compileall -q src
-          if [ -d tests/unit ]; then uv run pytest -q tests; fi
+          if [ -d tests/unit ]; then uv run pytest -q tests --junitxml=test-results/python.xml; fi
       - name: Generate frontend API types
         run: |
           if [ -f src/lab/api/app.py ]; then uv run python scripts/export_openapi.py; cd apps/web; npm run generate-types; fi
@@ -86,6 +92,13 @@ jobs:
             npx playwright install --with-deps chromium
             npx playwright test --config ../../tests/e2e/playwright.config.ts
           fi
+      - name: Build and verify the production Docker image
+        run: |
+          python scripts/resolve_images.py
+          docker build -t tisiif-lab:verified .
+          docker run --rm --entrypoint python tisiif-lab:verified -c "from lab.api.app import app;from lab.pdf.prepare import inspect_pdf;print(app.version)"
+          mkdir -p verification-artifacts
+          cp build-manifest.json Dockerfile verification-artifacts/
       - name: Capture dependency and test artifacts
         if: always()
         run: |

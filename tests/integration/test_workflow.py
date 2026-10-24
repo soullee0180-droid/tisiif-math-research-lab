@@ -141,6 +141,10 @@ def test_7200_job_queue_claim_bounds(client):
     with ThreadPoolExecutor(max_workers=12) as executor:
         results=list(executor.map(claim,['stress-'+str(i) for i in range(24)]))
     active=[r for r in results if r]
+    assert len(active)<=4
+    while len(active)<4:
+        extra=claim('capacity-check');assert extra is not None;active.append(extra)
+    assert claim('over-capacity') is None
     assert len(active)==4 and len({r[0]['id'] for r in active})==4
     with transaction() as conn:
         assert one(conn,"select count(*) n from lab.jobs where plan_id=%s",(result['plan_id'],))['n']==7200

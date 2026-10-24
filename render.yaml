@@ -1,0 +1,101 @@
+# Paid resources: review the actual account quote before applying this Blueprint.
+# Keep auto deployment off until secrets, OAuth, migration and first bootstrap pass.
+services:
+  - type: web
+    name: lab-web
+    runtime: docker
+    region: singapore
+    plan: 0.5c-512mb
+    numInstances: 1
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    dockerCommand: python -m lab.cli web
+    preDeployCommand: python -m lab.cli migrate
+    healthCheckPath: /healthz
+    autoDeployTrigger: off
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: WORKER_NAME
+        value: web
+      - key: APP_ORIGIN
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_PUBLISHABLE_KEY
+        sync: false
+      - key: SUPABASE_SERVER_SECRET
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: SECRETS_MASTER_KEY
+        sync: false
+      - key: DEFAULT_WORKSPACE_ID
+        sync: false
+      - key: BOOTSTRAP_ADMIN_EMAIL
+        sync: false
+      - key: TEAM_EMAIL_ALLOWLIST
+        sync: false
+      - key: BUILD_SHA
+        sync: false
+  - type: worker
+    name: lab-worker
+    runtime: docker
+    region: singapore
+    plan: 1c-2g
+    numInstances: 1
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    dockerCommand: python -m lab.cli worker
+    autoDeployTrigger: off
+    disk:
+      name: lab-backups
+      mountPath: /var/backups/tisiif
+      sizeGB: 20
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: WORKER_NAME
+        value: worker-1
+      - key: BACKUP_DIR
+        value: /var/backups/tisiif
+      - key: APP_ORIGIN
+        fromService:
+          name: lab-web
+          type: web
+          envVarKey: APP_ORIGIN
+      - key: SUPABASE_URL
+        fromService:
+          name: lab-web
+          type: web
+          envVarKey: SUPABASE_URL
+      - key: SUPABASE_PUBLISHABLE_KEY
+        fromService:
+          name: lab-web
+          type: web
+          envVarKey: SUPABASE_PUBLISHABLE_KEY
+      - key: SUPABASE_SERVER_SECRET
+        fromService:
+          name: lab-web
+          type: web
+          envVarKey: SUPABASE_SERVER_SECRET
+      - key: DATABASE_URL
+        fromService:
+          name: lab-web
+          type: web
+          envVarKey: DATABASE_URL
+      - key: SECRETS_MASTER_KEY
+        fromService:
+          name: lab-web
+          type: web
+          envVarKey: SECRETS_MASTER_KEY
+      - key: DEFAULT_WORKSPACE_ID
+        fromService:
+          name: lab-web
+          type: web
+          envVarKey: DEFAULT_WORKSPACE_ID
+      - key: BUILD_SHA
+        fromService:
+          name: lab-web
+          type: web
+          envVarKey: BUILD_SHA

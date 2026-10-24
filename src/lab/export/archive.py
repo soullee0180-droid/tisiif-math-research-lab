@@ -111,6 +111,22 @@ def gather(conn,user,filters,include_source=True,backup=False):
                 keep=[x for x in allrows if str(x.get("run_id")) in run_ids or str(x.get("job_id")) in jobs]
             else:keep=allrows
             data[table]=keep
+        checkpoints={str(r["checkpoint_revision_id"]) for r in rows}
+        data["checkpoint_revisions"]=[r for r in data["checkpoint_revisions"] if str(r["id"]) in checkpoints]
+        cpids={str(r["checkpoint_id"]) for r in data["checkpoint_revisions"]}
+        data["checkpoints"]=[r for r in data["checkpoints"] if str(r["id"]) in cpids]
+        protocol_ids={str(r["protocol_id"]) for r in data["plans"]}
+        data["protocol_versions"]=[r for r in data["protocol_versions"] if str(r["id"]) in protocol_ids]
+        profiles={str(v.get("id")) for r in rows for v in r["frozen_config"]["models"].values()}
+        data["model_profiles"]=[r for r in data["model_profiles"] if str(r["id"]) in profiles]
+        idea_ids={str(r["id"]) for r in data["ideas"]}
+        data["review_assignments"]=[r for r in data["review_assignments"] if str(r["idea_id"]) in idea_ids]
+        assignment_ids={str(r["id"]) for r in data["review_assignments"]}
+        batch_ids={str(r["review_batch_id"]) for r in data["review_assignments"]}
+        data["review_batches"]=[r for r in data["review_batches"] if str(r["id"]) in batch_ids]
+        data["human_reviews"]=[r for r in data["human_reviews"] if str(r["assignment_id"]) in assignment_ids]
+        object_ids=plan_ids|run_ids|paper_ids|checkpoints|cpids|idea_ids|assignment_ids|batch_ids
+        data["audit_events"]=[r for r in data["audit_events"] if str(r.get("object_id")) in object_ids]
         papers=data["papers"]
     assets=many(conn,"select * from lab.assets where workspace_id=%s and kind=any(%s)",(ws,list(ASSET_KINDS)))
     if not include_source:assets=[a for a in assets if a["kind"]!="source_pdf"]
@@ -126,6 +142,7 @@ def gather(conn,user,filters,include_source=True,backup=False):
 def write_archive(user,filters,path,include_source=True,external=False,backup=False):
     store=Storage()
     with transaction() as conn:
+        conn.execute("set transaction isolation level repeatable read, read only")
         data,assets,rows=gather(conn,user,filters,include_source and not external,backup)
         reviews=data["human_reviews"]
     if external:

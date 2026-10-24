@@ -122,7 +122,7 @@ def checkpoint(ident:UUID,body:CheckpointBody,user=Depends(current_user)):
         cp=insert(conn,"lab.checkpoints",dict(id=uuid4(),workspace_id=user["workspace_id"],paper_id=ident,
             code="CP"+str(n).zfill(2),title=body.title,created_by=user["user_id"]))
         rev=insert(conn,"lab.checkpoint_revisions",dict(id=uuid4(),workspace_id=user["workspace_id"],
-            checkpoint_id=cp["id"],version_no=1,source_asset_id=paper["source_asset_id"],created_by=user["user_id"],
+            checkpoint_id=cp["id"],title=body.title,version_no=1,source_asset_id=paper["source_asset_id"],created_by=user["user_id"],
             page_recipe=[{"page":i,"include":True,"rotation":0,"masks":[]} for i in range(1,asset["page_count"]+1)]))
         return {"checkpoint":cp,"revision":with_hash(rev)}
 
@@ -211,6 +211,7 @@ def approve(ident:UUID,body:ApproveBody,user=Depends(current_user)):
             fail("REFERENCE_REQUIRED","기준 아이디어와 원문 위치를 입력해 주세요.")
         update(conn,"lab.checkpoint_revisions",ident,user["workspace_id"],
                {"status":"approved","reviewed_by":user["user_id"],"reviewed_at":datetime.now(timezone.utc)})
+        if row.get("title"):conn.execute("update lab.checkpoints set title=%s where workspace_id=%s and id=%s",(row["title"],user["workspace_id"],row["checkpoint_id"]))
         audit(conn,user,"revision.approve","checkpoint_revision",ident,{"public_hash":sha})
         return {"revision_id":ident,"status":"approved","hash":sha}
 

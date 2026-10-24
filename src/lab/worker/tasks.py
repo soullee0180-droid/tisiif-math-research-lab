@@ -73,7 +73,8 @@ def process_aux(job):
                     with transaction() as conn:
                         conn.execute("set transaction isolation level repeatable read, read only")
                         rows=selected_runs(conn,actor,export["filters"])
-                        reviews=many(conn,"select * from lab.human_reviews where workspace_id=%s",(ws,))
+                        ids=[i["id"] for r in rows for i in r["ideas"]]
+                        reviews=many(conn,"select h.* from lab.human_reviews h join lab.review_assignments a on a.id=h.assignment_id where h.workspace_id=%s and a.idea_id=any(%s::uuid[])",(ws,ids))
                     texts={};path=root/"results.xlsx"
                     n=write_excel(rows,reviews,path,texts)
                     if n:

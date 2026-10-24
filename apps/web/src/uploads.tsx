@@ -16,6 +16,7 @@ export function UploadProvider({children}:{children:ReactNode}){
  const ref=useRef(items);ref.current=items;
  const uploads=useRef(new Map<string,Upload>());
  const paused=useRef(new Set<string>());
+ const aborters=useRef(new Map<string,()=>void>());
  const client=useQueryClient();
  function patch(id:string,data:Partial<Item>){setItems(old=>old.map(i=>i.id===id?{...i,...data}:i))}
  useEffect(()=>{
@@ -40,9 +41,9 @@ export function UploadProvider({children}:{children:ReactNode}){
  function choose(files:FileList|File[]){
   setError('');const list=Array.from(files);
   if(list.some(f=>!f.name.toLowerCase().endsWith('.pdf')||f.size>104857600)){setError('PDF 파일당 100MiB까지 등록할 수 있습니다.');return}
-  if(list.length+items.length>100||list.reduce((n,f)=>n+f.size,0)+items.reduce((n,f)=>n+f.size,0)>1073741824){setError('한 배치는 PDF 100개, 합계 1GiB까지입니다.');return}
+  if(list.length+items.filter(i=>i.status!=='완료').length>100||list.reduce((n,f)=>n+f.size,0)+items.filter(i=>i.status!=='완료').reduce((n,f)=>n+f.size,0)>1073741824){setError('한 배치는 PDF 100개, 합계 1GiB까지입니다.');return}
   setItems(old=>{
-   const next=[...old];
+   const next=old.filter(i=>i.status!=='완료');
    for(const f of list){
     const pending=next.find(i=>!i.file&&i.name===f.name&&i.size===f.size);
     if(pending){pending.file=f;pending.status='대기'}
@@ -65,6 +66,7 @@ export function UploadProvider({children}:{children:ReactNode}){
     if(!r.ok)throw new Error('파일을 전송하지 못했습니다.');
    }else{
     await new Promise<void>((resolve,reject)=>{
+     aborters.current.set(item.id,()=>reject(new Error('paused')));
      const upload=new Upload(item.file!,{
       endpoint:row.upload_endpoint,headers:{'x-signature':row.signed_upload_token,'x-upsert':'false'},
       chunkSize:6*1024*1024,uploadDataDuringCreation:true,removeFingerprintOnSuccess:true,
@@ -93,7 +95,7 @@ export function UploadProvider({children}:{children:ReactNode}){
     const reserved=await api('/uploads/reserve',{files:fresh.map(i=>({client_file_id:i.id,name:i.name,byte_size:i.size,mime_type:'application/pdf'}))});
     const map=new Map<string,Row>(reserved.items.map((r:Row)=>[r.client_file_id,r]));
     pending=pending.map(i=>map.has(i.id)?{...i,...map.get(i.id)}:i);
-    for(const i of pending)patch(i.id,i);
+    for(const i of pending)patch(i.id,{...i,error:typeof i.error==='object'?(i.error as any).message:i.error});
    }
    let index=0;
    await Promise.all(Array.from({length:Math.min(3,pending.length)},async()=>{
@@ -103,7 +105,7 @@ export function UploadProvider({children}:{children:ReactNode}){
   finally{setBusy(false)}
  }
  function pause(item:Item){
-  paused.current.add(item.id);uploads.current.get(item.id)?.abort();patch(item.id,{status:'일시정지'});
+  paused.current.add(item.id);uploads.current.get(item.id)?.abort();aborters.current.get(item.id)?.();patch(item.id,{status:'일시정지'});
  }
  const live=items.some(i=>!['완료','대기'].includes(i.status))||busy;
  return <Context.Provider value={{open:()=>setOpen(true)}}>{children}

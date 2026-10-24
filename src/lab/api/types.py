@@ -19,6 +19,7 @@ class ReserveBody(Body):
         return self
 
 class RevisionPatch(Body):
+    title: str = Field(default="", max_length=300)
     expected_hash: str
     input_mode: Literal["pdf", "text"]
     goal_md: str = ""

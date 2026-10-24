@@ -1282,6 +1282,11 @@ export interface components {
         };
         /** RevisionPatch */
         RevisionPatch: {
+            /**
+             * Title
+             * @default
+             */
+            title: string;
             /** Expected Hash */
             expected_hash: string;
             /**
