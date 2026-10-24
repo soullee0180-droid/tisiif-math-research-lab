@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.edge-bundle/
+.env*
+!.env.example
+apps/web/public/vendor/
+test-results/
+playwright-report/
+.supabase/

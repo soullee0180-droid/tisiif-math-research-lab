@@ -1,0 +1,24 @@
+{
+  "frontend_public": {
+    "VITE_SUPABASE_URL": "actual https project URL",
+    "VITE_SUPABASE_PUBLISHABLE_KEY": "publishable, never service/secret key"
+  },
+  "edge_platform_bindings": "Use current official Supabase server configuration for project URL and server-only API credentials; do not copy these into Vite. Confirm gateway semantics for the actual key type.",
+  "edge_user_defined_secrets": {
+    "LAB_APP_ORIGIN": "actual Cloudflare HTTPS origin",
+    "LAB_SECRETS_MASTER_KEY": "32 random bytes base64, separate from DB backup",
+    "LAB_SCHEDULER_SECRET": "high entropy random internal scheduler secret; rotate without exposing"
+  },
+  "vault": "scheduler URL/auth material for pg_net, never committed SQL literal",
+  "bootstrap_only": "confirmed admin/allowlist stored once, then private DB is authority",
+  "default_real_api": "disabled; explicit per-provider budget required",
+  "forbidden_frontend": [
+    "service_role",
+    "sb_secret_*",
+    "provider keys",
+    "master key",
+    "scheduler secret",
+    "DATABASE_URL"
+  ],
+  "secrets_not_deliverable": true
+}
