@@ -205,6 +205,15 @@ def manual_response(ident:UUID,body:ManualBody,request:Request,user=Depends(curr
     with transaction() as conn:
         job=get(conn,"jobs",ident,user["workspace_id"],True)
         plan=get(conn,"plans",job["plan_id"],user["workspace_id"]);control(user,plan)
+        if plan["transport"]=="manual" and job["status"]=="completed":
+            from lab.domain.research import digest
+            try:replay_key=UUID(request.headers.get("Idempotency-Key",""))
+            except ValueError:fail("IDEMPOTENCY_KEY_REQUIRED","요청 식별자가 필요합니다.")
+            replay=one(conn,"select * from lab_private.idempotency_requests where workspace_id=%s and actor_id=%s and request_key=%s and route=%s",
+                (user["workspace_id"],user["user_id"],replay_key,request.method+" "+request.url.path))
+            if replay:
+                if replay["body_sha256"]!=digest(body.model_dump(mode="json")):fail("IDEMPOTENCY_CONFLICT","같은 요청 식별자의 내용이 다릅니다.",409)
+                return {"job_id":ident,"attempt_id":replay["safe_response"]["attempt_id"],"accepted":True}
         if plan["transport"]!="manual" or job["status"] not in ("needs_input","needs_review"):
             fail("MANUAL_NOT_READY","수동 응답을 등록할 수 없는 단계입니다.",409)
     packet,run,plan=load_packet(job)

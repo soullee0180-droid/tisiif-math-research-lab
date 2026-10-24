@@ -70,6 +70,8 @@ jobs:
             git commit -m "build: lock verified runtime dependencies"
             git push
           fi
+      - name: Verify Render Blueprint structure
+        run: uv run python scripts/verify_blueprint.py
       - name: Verify specification contracts
         run: uv run python scripts/check_spec.py
       - name: Python syntax and application tests
@@ -83,6 +85,13 @@ jobs:
         working-directory: apps/web
         run: |
           if [ -f src/main.tsx ]; then npm run test && npm run build; fi
+      - name: Build and verify the production Docker image
+        run: |
+          python scripts/resolve_images.py
+          docker build -t tisiif-lab:verified .
+          docker run --rm --entrypoint python tisiif-lab:verified -c "from lab.api.app import app;from lab.pdf.prepare import inspect_pdf;print(app.version)"
+          mkdir -p verification-artifacts
+          cp build-manifest.json Dockerfile verification-artifacts/
       - name: Prepare synthetic browser workspace
         run: uv run python scripts/seed_browser_test.py
       - name: Browser verification
@@ -92,20 +101,13 @@ jobs:
             npx playwright install --with-deps chromium
             npx playwright test --config ../../tests/e2e/playwright.config.ts
           fi
-      - name: Build and verify the production Docker image
-        run: |
-          python scripts/resolve_images.py
-          docker build -t tisiif-lab:verified .
-          docker run --rm --entrypoint python tisiif-lab:verified -c "from lab.api.app import app;from lab.pdf.prepare import inspect_pdf;print(app.version)"
-          mkdir -p verification-artifacts
-          cp build-manifest.json Dockerfile verification-artifacts/
       - name: Capture dependency and test artifacts
         if: always()
         run: |
           mkdir -p verification-artifacts
           cp -f uv.lock verification-artifacts/ 2>/dev/null || true
           cp -f apps/web/package.json apps/web/package-lock.json verification-artifacts/ 2>/dev/null || true
-          if [ -d apps/web/node_modules ]; then tar -czf verification-artifacts/node-modules.tar.gz -C apps/web node_modules; fi
+          tar -czf verification-artifacts/python-site-packages.tar.gz -C .venv/lib/python3.12 site-packages
       - uses: actions/upload-artifact@v4
         if: always()
         with:

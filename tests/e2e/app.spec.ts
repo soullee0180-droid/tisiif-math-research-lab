@@ -11,13 +11,13 @@ test('researcher can inspect paper, frozen experiment, results, and real service
  await page.screenshot({path:'../../test-results/papers-desktop.png',fullPage:true});
  await page.goto('/experiments/'+fixture.plan_id);
  await expect(page.getByRole('heading',{name:'Fixture research flow'})).toBeVisible();
- await page.getByRole('button',{name:'고정 입력·설정',exact:true}).click();
+ await page.getByRole('tab',{name:'고정 입력·설정',exact:true}).click();
  await expect(page.getByText('프로토콜 고정',{exact:false})).toBeVisible();
  await page.goto('/results?plan='+fixture.plan_id);
  await expect(page.getByRole('heading',{name:'결과',exact:true})).toBeVisible();
  await expect(page.getByRole('heading',{name:'유용성',exact:true})).toBeVisible();
  await page.screenshot({path:'../../test-results/results-desktop.png',fullPage:true});
- await page.getByRole('button',{name:'아이디어',exact:true}).click();
+ await page.getByRole('tab',{name:'아이디어',exact:true}).click();
  await page.getByRole('button',{name:/P001 · CP01/}).first().click();
  await expect(page.getByText('선택됨',{exact:true})).toBeVisible();
  await page.goto('/settings');await expect(page.getByRole('heading',{name:'설정',exact:true})).toBeVisible();

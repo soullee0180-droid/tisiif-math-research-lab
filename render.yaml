@@ -12,7 +12,7 @@ services:
     dockerCommand: python -m lab.cli web
     preDeployCommand: python -m lab.cli migrate
     healthCheckPath: /healthz
-    autoDeployTrigger: off
+    autoDeployTrigger: "off"
     envVars:
       - key: APP_ENV
         value: production
@@ -47,7 +47,7 @@ services:
     dockerfilePath: ./Dockerfile
     dockerContext: .
     dockerCommand: python -m lab.cli worker
-    autoDeployTrigger: off
+    autoDeployTrigger: "off"
     disk:
       name: lab-backups
       mountPath: /var/backups/tisiif

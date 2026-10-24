@@ -156,3 +156,38 @@ def test_7200_job_queue_claim_bounds(client):
     with transaction() as conn:
         assert one(conn,"select count(*) n from lab.jobs where plan_id=%s",(result['plan_id'],))['n']==7200
         assert one(conn,"select count(*) n from lab.jobs where plan_id=%s and status='leased'",(result['plan_id'],))['n']==4
+
+def test_manual_transport_never_dispatches_and_keeps_original(client):
+    _,_,rev=seed_input(client)
+    profiles={}
+    for provider in ('google','openai','anthropic'):
+        p=request(client,'/admin/model-profiles',{'provider':provider,'label':'Synthetic manual profile','model_id':'fixture-ui-'+provider,
+            'config':{},'capabilities':{'pdf_supported':True,'structured_output_supported':True,'official_source_url':'https://example.test/synthetic-fixture'},'manual_only':True})
+        profiles[provider]=p['id']
+    protocol=request(client,'/protocols')['items'][0]
+    body={'title':'Manual synthetic flow','transport':'manual','cohort':'manual','checkpoint_revision_ids':[rev['id']],'protocol_id':protocol['id'],'generator_profile_ids':profiles}
+    plan=request(client,'/plans',body)
+    assert claim('must-not-dispatch-manual') is None
+    with transaction() as conn:job=one(conn,"select * from lab.jobs where plan_id=%s and phase='generate' order by id limit 1",(plan['plan_id'],))
+    ident=str(job['id']);prompt=request(client,'/jobs/'+ident+'/manual-prompt')
+    assert 'HIDDEN_CANARY' not in prompt['prompt']
+    from lab.providers.adapters import mock_send
+    raw=mock_send(prompt['packet']).text
+    response={'raw_text':raw,'screen_model':'Synthetic manual UI','mode':'fresh conversation','occurred_at':'2026-10-24T00:00:00+00:00','tools':'off','web_search':'off','memory':'off'}
+    key=str(uuid4());accepted=request(client,'/jobs/'+ident+'/manual-response',response,key=key)
+    assert accepted['accepted']
+    assert request(client,'/jobs/'+ident+'/manual-response',response,key=key)==accepted
+    recover()
+    with transaction() as conn:selection=one(conn,"select * from lab.jobs where run_id=%s and phase='select'",(job['run_id'],))
+    target=str(selection['id']);packet=request(client,'/jobs/'+target+'/manual-prompt')['packet']
+    unstructured={**response,'raw_text':'Synthetic free-form response that is deliberately not JSON.'}
+    assert not request(client,'/jobs/'+target+'/manual-response',unstructured)['accepted']
+    mapped={**unstructured,'mapped_response':json.loads(mock_send(packet).text),'correction_reason':'Manual schema mapping for synthetic test'}
+    result=request(client,'/jobs/'+target+'/manual-response',mapped);assert result['accepted']
+    with transaction() as conn:
+        attempts=many(conn,'select * from lab.attempts where job_id=%s order by attempt_no',(selection['id'],))
+        assert len(attempts)==2 and attempts[0]['status']=='invalid' and attempts[1]['status']=='accepted'
+        assert attempts[1]['normalized_settings']['human_corrected']
+        asset=one(conn,'select * from lab.assets where id=%s',(attempts[1]['raw_text_asset_id'],))
+    from lab.storage.client import Storage
+    assert Storage().get(asset).decode()==unstructured['raw_text']
