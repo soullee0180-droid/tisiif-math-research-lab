@@ -1,0 +1,7 @@
+import{sha,stable,type Json}from'./core';
+export const sections=['members','papers','assets','checkpoints','checkpoint_revisions','revision_assets','protocol_versions','model_profiles','plans','plan_inputs','plan_models','runs','jobs','attempts','ideas','selections','usefulness_ratings','agreement_ratings','review_samples','review_assignments','review_revisions','analysis_snapshots','export_manifests','audit_events'] as const;
+export async function leaf(section:string,index:number,row:Json){return sha(section+':'+index+':'+stable(row))}
+export async function tree(hashes:string[]){const levels=[hashes];if(!hashes.length)return{root:await sha('empty'),levels};while(levels.at(-1)!.length>1){const current=levels.at(-1)!,next=[];for(let i=0;i<current.length;i+=2)next.push(await sha(current[i]+(current[i+1]||current[i])));levels.push(next)}return{root:levels.at(-1)![0],levels}}
+export function proof(levels:string[][],index:number){const out=[];for(let l=0;l<levels.length-1;l++){out.push({hash:levels[l][index^1]||levels[l][index],left:index%2===1});index=Math.floor(index/2)}return out}
+export async function verify(hash:string,items:Json[],root:string){let value=hash;for(const p of items){if(!/^[a-f0-9]{64}$/.test(p.hash))return false;value=await sha(p.left?p.hash+value:value+p.hash)}return value===root}
+export function safePath(p:string){if(!/^[A-Za-z0-9_./-]+$/.test(p)||p.startsWith('/')||p.split('/').some(v=>v==='..'||v==='.'||v===''))throw Error('UNSAFE_ARCHIVE_PATH');return p}

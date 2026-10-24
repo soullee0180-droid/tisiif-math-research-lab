@@ -1,0 +1,9 @@
+project_id = "tisiif-free-lab"
+[api]
+schemas = ["public", "graphql_public"]
+[functions.api]
+verify_jwt = false
+[functions.dispatch]
+verify_jwt = false
+[functions.execute]
+verify_jwt = false
