@@ -6,7 +6,7 @@
 | F02/F03 인증·IDOR | api/handler, lab_identity/actor, private schema grants, database integration. 실제 3계정 검수 BLOCKED |
 | F04 불변성 | revision/plan/attempt/immutable triggers, SQL tests |
 | F05/F06 업로드 | upload.ts TUS 6MiB, SQL batch atomic reservation/admission, server HEAD/hash. 실제 TUS 미검수 |
-| F07 PDF | pdf.worker.ts raster/mask/new PDF + source canary + independent pypdf CI. CI 결과 확인 전 제한 |
+| F07 PDF | pdf.worker.ts raster/mask/new PDF + source canary + independent pypdf CI. CI 및 독립 pypdf PASS (d246ab3, run 40142289144); CropBox·회전·경계는 추가 실제 자료 검수 필요 |
 | F08/F09 정보 차단·ID | contracts/core.ts, stage DTO unit canaries, mapping and semantic validation |
 | F10~F14 queue·복구 | free_queue/scheduler, internal HMAC, execution/provider adapters, pipeline unknown/reparse; 실제 cloud 검수 별도 |
 | F15 지표 | packages/metrics, M01~M04/equal paper/common/null unit |

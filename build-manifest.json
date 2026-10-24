@@ -1,9 +1,9 @@
 {
   "app": "TISIIF Math Research Lab",
   "version": "3.0.0",
-  "source_commit": "local-uncommitted-pending-upload-approval",
+  "source_commit": "d246ab3a62f5f734c8ea2ee733ced304dcb9f805",
   "node": "v24.22.1",
-  "created_at": "2026-10-24T20:04:13.062Z",
+  "created_at": "2026-10-24T23:34:22.998Z",
   "package_lock_sha256": "8d3b4c9a01f8fedd9a37d5b51e799c9a8c49402b8a46400ec1127aaf8512e5e8",
   "deno_lock_sha256": "a3d5c25d0ace946651cc33381d1b5ee86aebbc6115dcefb85f053e5f7564ae2c",
   "protocol_sha256": "5d2ce21ece6af1c70f8552a8be78f37e1f79c45bf22793580808ea50c8737b97",
@@ -14,11 +14,11 @@
     },
     {
       "file": "20261024190638_free_api.sql",
-      "sha256": "6c586650aced6f4b96c48207cd0828f27e5e6ca8afc54b17f95fa1aa0a452d76"
+      "sha256": "c2dd9cfd1e35a5c59d61385187776db2ec0aca743df06034af0c398be1bcba26"
     },
     {
       "file": "20261024190816_free_queue.sql",
-      "sha256": "4542519d56c41e433cf0323d5121c5541ee187451b7d805726853d61a9ba9acd"
+      "sha256": "75352ec82dee5c59a698709ec3f2dbbf2440b8d274e4fc71dc421b809b4d5019"
     },
     {
       "file": "20261024190930_free_research_tools.sql",

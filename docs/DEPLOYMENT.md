@@ -14,3 +14,5 @@
 Secrets와 Google OAuth는 현재 연결된 Supabase 도구에 설정 기능이 없어 Dashboard 인증이 필요하다. Cloudflare 플러그인이 없어 해당 배포도 공식 Dashboard를 사용한다. 비밀번호·OTP·키를 채팅으로 전달하지 않는다.
 
 모델 키·API 예산이 없으면 실제 연결 검수는 BLOCKED로 남긴다. API 프로필은 정확한 ID·공식 가격·최대 요청 비용을 입력하고 각 단계별 1회 검수를 별도로 허용해야 한다. PDF 자동 API 경로도 별도 준비 단위로 구현되어 있다. 실제 remote-file 업로드·만료·각 단계 검수를 통과하기 전까지 capability gate로 차단한다.
+
+현재 대상 프로젝트에는 DB·bootstrap·Edge 3개가 적용됐다. 재실행 전 DEPLOYMENT_LEDGER.json과 실제 원격 이력을 비교한다. 남은 secrets·OAuth·Pages 로그인 이후 실제 HTTPS origin을 연결하고, 관리자 UI에서 scheduler를 설치·검수한다.

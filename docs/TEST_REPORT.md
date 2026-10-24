@@ -33,3 +33,12 @@
 실제 PostgreSQL 17 격리 CI PASS: 32개 동시 claim 중 1개 할당, 24개 멱등 요청은 같은 1개 행, nonce 1회, 2명 소유자의 공정 전환, RPM/TPM 차단, 8개 동시 100MiB 예약 중 7개 허용·800MB 미만. 실제 클라우드 부하와 구분한다.
 
 Supabase 배포는 진행 중이다. 기존 schema는 legacy 이름으로 보존했고 schema 및 읽기 RPC까지 적용했다. 쓰기 RPC는 배포 도구의 긴 요청 오류 때문에 기능별 내부 함수로 분리했으며 SQL·36-job 전체 파이프라인 로컬 검수는 다시 통과했다. 이 분리 버전의 CI와 남은 실제 배포 상태를 후속 갱신한다.
+
+
+후속 검수 commit d246ab3a62f5f734c8ea2ee733ced304dcb9f805 / CI run 40142289144: 전체 PASS. 내부 쓰기 함수 분리 후 실제 PostgreSQL 경쟁·7,200 mock·전체 UI·독립 PDF 파서를 다시 통과했다.
+
+실제 Supabase 배포 PASS (배포 범위): 기존 28개 표를 legacy schema에 보존하고 새 업무 DB, 4개 private bucket, server-only RPC, scheduler 함수·확장, api/dispatch/execute v1을 적용했다. 관리자 allowlist는 확인된 1명만, API OFF·3개 예산 $0·scheduler OFF다. 전체 원격 migration ledger는 DEPLOYMENT_LEDGER.json에 있다. MCP로 나누어 적용했으므로 로컬 migration timestamp와 원격 version을 혼동해 재적용하지 않는다.
+
+실제 HTTPS 검사 PASS: health 200 / 미인증 me 401 / 잘못된 Origin 403 / 서명 없는 dispatch·execute 403. 로컬 HTTP와 프로젝트 pg_net에서 동일 결과를 확인했다. 실제 모델 호출 0. 모든 새 업무 표 RLS ON, anon/authenticated 업무 RPC EXECUTE 0, DB 약 14.9MB. 보안 advisor는 WARN/ERROR 0, INFO 45개(서버 전용 private 표에 직접 사용자 정책을 두지 않은 의도된 설계)다.
+
+아직 BLOCKED: Cloudflare Pages 공개 주소, Supabase secrets·Google OAuth 설정, 팀 3계정 실제 로그인, 실제 TUS·예약 mock·Storage 백업/복원. 예약 함수 설치는 완료했지만 secret과 사용자 검수가 없어 cron job은 0개이며 OFF다. 실제 provider capability는 예산·키 없이 BLOCKED로 유지한다.

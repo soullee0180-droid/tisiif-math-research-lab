@@ -1,0 +1,119 @@
+{
+  "project": "bugnhvehtrsgehgnhlvm",
+  "source_commit": "d246ab3a62f5f734c8ea2ee733ced304dcb9f805",
+  "verified_ci_run": 40142289144,
+  "migrations": [
+    {
+      "version": "20261024020759",
+      "name": "initial_research_contract"
+    },
+    {
+      "version": "20261024033509",
+      "name": "render_runtime"
+    },
+    {
+      "version": "20261024101109",
+      "name": "checkpoint_title_and_archive_parts"
+    },
+    {
+      "version": "20261024203828",
+      "name": "v3_free_schema"
+    },
+    {
+      "version": "20261024230029",
+      "name": "v3_free_api_read"
+    },
+    {
+      "version": "20261024232006",
+      "name": "v3_write_papers"
+    },
+    {
+      "version": "20261024232015",
+      "name": "v3_write_assets"
+    },
+    {
+      "version": "20261024232023",
+      "name": "v3_write_plans"
+    },
+    {
+      "version": "20261024232051",
+      "name": "v3_write_admin"
+    },
+    {
+      "version": "20261024232100",
+      "name": "v3_write_research"
+    },
+    {
+      "version": "20261024232109",
+      "name": "v3_write_wrapper"
+    },
+    {
+      "version": "20261024232159",
+      "name": "v3_queue_1"
+    },
+    {
+      "version": "20261024232208",
+      "name": "v3_queue_2"
+    },
+    {
+      "version": "20261024232220",
+      "name": "v3_queue_3"
+    },
+    {
+      "version": "20261024232230",
+      "name": "v3_research_1"
+    },
+    {
+      "version": "20261024232240",
+      "name": "v3_research_2"
+    },
+    {
+      "version": "20261024232623",
+      "name": "v3_free_admission"
+    },
+    {
+      "version": "20261024232631",
+      "name": "v3_free_capability_probe"
+    },
+    {
+      "version": "20261024232639",
+      "name": "v3_free_provider_files"
+    },
+    {
+      "version": "20261024232824",
+      "name": "v3_scheduler_extensions"
+    },
+    {
+      "version": "20261024233221",
+      "name": "v3_scheduler_tick"
+    },
+    {
+      "version": "20261024233243",
+      "name": "v3_scheduler_install"
+    }
+  ],
+  "edge_functions": {
+    "api": 1,
+    "dispatch": 1,
+    "execute": 1
+  },
+  "defaults": {
+    "api_enabled": false,
+    "scheduler_enabled": false,
+    "provider_budget_usd": 0
+  },
+  "remaining": [
+    "Cloudflare login and Pages publishing",
+    "Supabase secure secrets and Google OAuth configuration",
+    "two team member email addresses and individual login tests",
+    "actual cloud scheduled mock, TUS and backup tests"
+  ],
+  "security_advisors": [
+    {
+      "name": "rls_enabled_no_policy",
+      "level": "INFO",
+      "count": 45,
+      "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy"
+    }
+  ]
+}
