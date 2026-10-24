@@ -18,3 +18,5 @@
 
 - Supabase의 modern secret key는 `apikey` 헤더에만 넣습니다. JWT 형식인 이전 service-role 키에만 Bearer 헤더를 병행합니다. 신규 secret을 JWT로 파싱하여 거부하는 문제를 방지합니다.
 - 분석 hash에는 현재 지표와 accepted attempt ID를 포함합니다. Excel의 공통/가용 비교 옵션을 화면과 동일하게 적용하고, 요청 이후 응답이 추가되어 snapshot이 달라지면 원래 분석과 같은 파일이라고 표시하지 않고 다시 확인하도록 합니다.
+
+- 다중 실행기의 lease·의존성 복구는 짧은 workspace advisory 잠금으로 중복 bulk UPDATE의 교착을 막습니다. 원격 응답을 읽은 후에도 job 상태·lease를 다시 잠그고 확인해, 늦은 복구 조회가 이미 완료된 작업을 덮어쓰지 않게 합니다.

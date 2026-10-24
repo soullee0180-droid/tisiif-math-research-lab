@@ -39,6 +39,7 @@ def reserve_response(conn, user, attempt):
 def recover():
     ws=settings().default_workspace_id
     with transaction() as conn:
+        if not one(conn,'select pg_try_advisory_xact_lock(hashtextextended(%s,983204)) locked',(str(ws),))['locked']:return
         conn.execute("""update lab.jobs set status='queued',lease_owner=null,lease_expires_at=null,updated_at=now()
             where workspace_id=%s and status='leased' and lease_expires_at<now()""",(ws,))
         rows=many(conn,"""select j.id job_id,j.workspace_id,a.id attempt_id,a.response_asset_id
@@ -59,6 +60,8 @@ def recover():
                     if not isinstance(obj.get('text'),str): raw=None
                 except (Exception,): raw=None
         with transaction() as conn:
+            current=one(conn,'select status,lease_expires_at from lab.jobs where id=%s and workspace_id=%s for update',(row['job_id'],ws))
+            if not current or current['status'] not in ('dispatching','submitted','waiting_remote') or not current['lease_expires_at'] or current['lease_expires_at']>datetime.now(timezone.utc):continue
             if raw is not None:
                 conn.execute("update lab.assets set status='verified',sha256=%s,byte_size=%s,verified_at=now() where id=%s and workspace_id=%s",
                              (digest(raw),len(raw),row['response_asset_id'],ws))
@@ -72,6 +75,8 @@ def recover():
                 conn.execute("update lab.attempts set status='unknown_remote',error_class='remote_unknown' where id=%s and workspace_id=%s",
                              (row['attempt_id'],ws))
     with transaction() as conn:
+        # Multiple worker processes can otherwise lock ready dependants in different orders.
+        if not one(conn,'select pg_try_advisory_xact_lock(hashtextextended(%s,983204)) locked',(str(ws),))['locked']:return
         conn.execute("""update lab.jobs j set status=case when r.transport='manual' then 'needs_input' else 'queued' end,updated_at=now()
             from lab.runs r where j.run_id=r.id and j.workspace_id=r.workspace_id and j.workspace_id=%s
             and j.status='blocked' and j.error_class is null
