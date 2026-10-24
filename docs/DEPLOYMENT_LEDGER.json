@@ -115,5 +115,11 @@
       "count": 45,
       "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy"
     }
-  ]
+  ],
+  "cloudflare_auth": {
+    "status": "BLOCKED",
+    "visible_error": "API Request Failed: post https://dash.cloudflare.com/api/v4/login (403)",
+    "signed_in": false,
+    "next": "manual authentication in the same Cloud Browser tab; no automated retry"
+  }
 }

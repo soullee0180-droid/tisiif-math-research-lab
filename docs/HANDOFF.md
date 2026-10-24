@@ -11,3 +11,5 @@ DEPLOYMENT_LEDGER.json의 원격 이력을 먼저 읽는다. MCP의 긴 단일 �
 남은 것은 Cloudflare Pages Free 배포 로그인, Supabase Dashboard의 Edge secrets와 Google OAuth 설정, 팀 3계정 검수 및 실제 Storage·cron mock·백업/복원이다. Cloudflare 플러그인 없음, Supabase 도구에 secrets/Auth config setter 없음. Cloud Browser의 Cloudflare 로그인은 아직 완료하지 않았다. 보안 로그인은 browserAuth를 쓰고 암호·OTP·키를 채팅으로 받지 않는다. 서버 secret은 LAB_SECRETS_MASTER_KEY(32randombytes base64), LAB_SCHEDULER_SECRET(32자 이상), 실제 LAB_APP_ORIGIN이다. 소스·프런트에 넣지 않는다. 소스와 공개 publishable key만 Cloudflare에 배포한다.
 
 무료 월 고정비 $0. Railway·Render·유료 서비스·카드 입력 없음. 실제 모델 예산·키·각 단계 검수 허용 전 실제 provider를 호출하지 않는다. 이 구현에 mock PASS를 실제 모델 PASS로 표시하지 않는다. 실제 클라우드 데이터 검수와 CI를 구분한다.
+
+Cloudflare 후속 인증: Cloud Browser의 dash.cloudflare.com/login에서 browserAuth가 submitted를 반환했지만, 실제 화면에 API Request Failed: post https://dash.cloudflare.com/api/v4/login (403)이 표시됐다. 로그인 성공이 아니다. 자동 재시도를 하지 않는다. 같은 로그인 탭에서 수동 인증 handoff로 이어간다. 비밀번호나 계정 식별자는 기록·추측하지 않는다.
