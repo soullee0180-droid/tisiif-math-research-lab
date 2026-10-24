@@ -7,7 +7,13 @@ declare pr lab_private.provider_runtime;j lab.jobs;pl lab.plans;at lab.attempts;
  where j0.provider=provider_name and j0.status='queued' and j0.due_at<=now() and p.status='running' and p.scheduled_at<=now() and p.transport<>'manual_web' and ws.active and(j0.depends_on is null or exists(select 1 from lab.jobs parent where parent.id=j0.depends_on and parent.status='complete'))
  order by case when j0.plan_id=pr.last_plan then 1 else 0 end,coalesce(fair.last_claimed_at,'1970-01-01'),j0.created_at,j0.id for update of j0 skip locked limit 1;
  if not found then return null;end if;select * into pl from lab.plans where id=j.plan_id;select snapshot into model from lab.plan_models where plan_id=pl.id and provider=provider_name;
- tokens=coalesce((model->>'output_cap')::integer,1000)+20000;cost=0;perform pg_advisory_xact_lock(610241);if lab_private.storage_admitted()+2097152>800000000 then update lab.jobs set status='blocked',last_error='RESPONSE_STORAGE_RESERVATION_BLOCKED' where id=j.id;return null;end if;
+ -- Reserve a conservative byte-based upper estimate, including the current candidates.
+ -- The fixed allowance covers system prompts/schema/wire framing. PDF adds 32k/page.
+ tokens=coalesce((model->>'output_cap')::integer,1000)+65536
+  +coalesce((select octet_length(snapshot::text) from lab.plan_inputs where plan_id=j.plan_id and revision_id=(select revision_id from lab.runs where id=j.run_id)),0)
+  +coalesce((select sum(octet_length(body::text))*2 from lab.ideas where run_id=j.run_id),0)
+  +coalesce((select case when pi.snapshot->>'input_mode'='pdf' then coalesce((s.metadata#>>'{inspection,pages}')::bigint,30)*32768 else 0 end from lab.plan_inputs pi left join lab.assets s on s.workspace_id=pi.workspace_id and s.id=(pi.snapshot->>'prepared_asset_id')::uuid where pi.plan_id=j.plan_id and pi.revision_id=(select revision_id from lab.runs where id=j.run_id)),0);
+ cost=0;perform pg_advisory_xact_lock(610241);if lab_private.storage_admitted()+2097152>800000000 then update lab.jobs set status='blocked',last_error='RESPONSE_STORAGE_RESERVATION_BLOCKED' where id=j.id;return null;end if;
  if pl.transport='api' then
   if not coalesce((select (settings->>'api_enabled')::boolean from lab.workspaces where id=j.workspace_id),false) then return null;end if;
   select * into b from lab_private.usage_budgets where workspace_id=j.workspace_id and provider=provider_name for update;

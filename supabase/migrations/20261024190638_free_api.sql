@@ -26,7 +26,7 @@ create function lab_private.backup(w uuid) returns jsonb language plpgsql stable
 create function public.lab_read(w uuid,a uuid,kind text,args jsonb default '{}') returns jsonb language plpgsql security invoker set search_path='' as $$ declare m lab.members;v jsonb;rid uuid;begin
  m=lab_private.actor(w,a);
  case kind
- when 'papers' then select jsonb_build_object('rows',coalesce(jsonb_agg(to_jsonb(p)),'[]'),'has_more',count(*)=30) into v from(select * from lab.papers where workspace_id=w and (args->>'cursor' is null or id>(args->>'cursor')::uuid) and (title ilike '%'||coalesce(args->>'search','')||'%') order by id limit 30)p;
+ when 'papers' then select jsonb_build_object('rows',coalesce(jsonb_agg(to_jsonb(p)),'[]'),'has_more',count(*)=30) into v from(select * from lab.papers where workspace_id=w and (nullif(args->>'cursor','') is null or id>nullif(args->>'cursor','')::uuid) and (title ilike '%'||coalesce(args->>'search','')||'%') order by id limit 30)p;
  when 'paper' then select to_jsonb(p)||jsonb_build_object('assets',coalesce((select jsonb_agg(to_jsonb(s)) from lab.assets s where s.workspace_id=w and s.paper_id=p.id),'[]'),'checkpoints',coalesce((select jsonb_agg(to_jsonb(c)||jsonb_build_object('revisions',coalesce((select jsonb_agg(to_jsonb(r) order by version_no desc) from lab.checkpoint_revisions r where r.workspace_id=w and r.checkpoint_id=c.id),'[]'))) from lab.checkpoints c where c.workspace_id=w and c.paper_id=p.id),'[]')) into v from lab.papers p where workspace_id=w and id=(args->>'id')::uuid;
  when 'revision' then select to_jsonb(r)||jsonb_build_object('paper_id',c.paper_id,'checkpoint_title',c.title) into v from lab.checkpoint_revisions r join lab.checkpoints c on c.workspace_id=r.workspace_id and c.id=r.checkpoint_id where r.workspace_id=w and r.id=(args->>'id')::uuid;
  when 'revisions' then select coalesce(jsonb_agg(to_jsonb(r)||jsonb_build_object('paper_title',p.title,'checkpoint_title',c.title)),'[]') into v from lab.checkpoint_revisions r join lab.checkpoints c on c.id=r.checkpoint_id join lab.papers p on p.id=c.paper_id where r.workspace_id=w and r.status='approved' and not p.archived;
@@ -63,11 +63,11 @@ begin
  update lab.checkpoint_revisions set body=p->'body',status='draft' where workspace_id=w and id=(p->>'id')::uuid and edit_version=(p->>'if_match')::integer returning id,edit_version into rid,ver;if rid is null then raise exception 'EDIT_CONFLICT';end if;v=jsonb_build_object('id',rid,'edit_version',ver);
  when 'revision_approve' then
  select * into rev from lab.checkpoint_revisions where workspace_id=w and id=(p->>'id')::uuid for update;if not found or rev.edit_version<>(p->>'if_match')::integer then raise exception 'EDIT_CONFLICT';end if;
- if rev.body->>'goal'='' or rev.body->>'obstacle'='' or rev.body->>'reference_idea_md'='' or rev.body->>'reference_location'='' then raise exception 'REVISION_INCOMPLETE';end if;
- if p->'checks'<>'[true,true,true]'::jsonb then raise exception 'APPROVAL_CHECKS_REQUIRED';end if;
+ if coalesce(trim(rev.body->>'goal'),'')='' or coalesce(trim(rev.body->>'obstacle'),'')='' or coalesce(trim(rev.body->>'reference_idea_md'),'')='' or coalesce(trim(rev.body->>'reference_location'),'')='' then raise exception 'REVISION_INCOMPLETE';end if;
+ if p->'checks' is distinct from '[true,true,true]'::jsonb then raise exception 'APPROVAL_CHECKS_REQUIRED';end if;
  if rev.body->>'input_mode'='pdf' then
   perform 1 from lab.assets where workspace_id=w and id=(rev.body->>'prepared_asset_id')::uuid and kind='prepared' and status='verified' and server_hash and sha256=rev.body->>'prepared_sha256' and metadata->>'preview_sha256'=sha256 and metadata->'inspection'->>'status'='PASS';if not found then raise exception 'PREPARED_NOT_VERIFIED';end if;
- elsif rev.body->>'input_mode'<>'text' or length(trim(rev.body->>'public_text'))=0 then raise exception 'PUBLIC_INPUT_REQUIRED';end if;
+ elsif rev.body->>'input_mode' is distinct from 'text' or coalesce(length(trim(rev.body->>'public_text')),0)=0 then raise exception 'PUBLIC_INPUT_REQUIRED';end if;
  update lab.checkpoint_revisions set status='approved',input_hash=lab_private.hash(rev.body-'reference_idea_md'-'reference_location'-'recognition_scope'-'private_notes'),reference_hash=lab_private.hash(rev.body->'reference_idea_md'),approved_by=a,approved_at=now(),body=body||jsonb_build_object('approval',jsonb_build_object('checks',p->'checks','hash',lab_private.hash(rev.body),'actor',a,'at',now())) where id=rev.id returning id into rid;v=jsonb_build_object('id',rid);
  when 'asset_batch_reserve' then
  v=lab_private.reserve_batch(w,a,p);

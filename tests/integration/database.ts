@@ -8,7 +8,9 @@ await db.query('insert into lab.protocol_versions(workspace_id,body,sha256) valu
 await call('lab_identity',{a,email_verified:'admin@fixture.invalid'});await call('lab_identity',{a:b,email_verified:'team@fixture.invalid'});
 const write=(action:string,p:any,actor=a,key=crypto.randomUUID())=>call('lab_write',{w,a:actor,action,p,idem:key});
 const paper=await write('paper_create',{title:'Synthetic test paper'});const cp=await write('checkpoint_create',{paper_id:paper.id,title:'Synthetic checkpoint',body:{input_mode:'text',goal:'Fixture goal',obstacle:'Fixture obstacle',public_text:'PUBLIC_CANARY',reference_idea_md:'SECRET_CANARY',reference_location:'page 1',steps:[]}});
+await assert.rejects(write('revision_approve',{id:cp.id,if_match:1}),/APPROVAL_CHECKS_REQUIRED/);
 await write('revision_approve',{id:cp.id,if_match:1,checks:[true,true,true]});await assert.rejects(write('revision_save',{id:cp.id,if_match:2,body:{}}),/IMMUTABLE/);
+assert.equal((await call('lab_read',{w,a,kind:'papers',args:{cursor:'',search:''}})).rows.length,1);
 const key=crypto.randomUUID();const first=await write('paper_create',{title:'Replay'},a,key);assert.deepEqual(await write('paper_create',{title:'Replay'},a,key),first);await assert.rejects(write('paper_create',{title:'Mismatch'},a,key),/IDEMPOTENCY_CONFLICT/);
 const plan=await write('plan_create',{name:'Fixture 36 jobs',k:5,repeats:2,cohort:'fixture',transport:'mock',revision_ids:[cp.id]});await assert.rejects(write('plan_control',{id:plan.id,status:'running'},b),/FORBIDDEN/);await write('plan_control',{id:plan.id,status:'running'});
 const count=await db.query('select count(*)::integer n from lab.jobs');assert.equal((count.rows[0] as any).n,36);
