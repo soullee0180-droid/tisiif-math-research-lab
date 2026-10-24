@@ -1,6 +1,7 @@
 from contextlib import contextmanager
 from datetime import date, datetime
 from decimal import Decimal
+import json
 from uuid import UUID, uuid4
 from psycopg import sql
 from psycopg.rows import dict_row
@@ -35,7 +36,7 @@ def many(conn, query, params=()):
     return conn.execute(query, params).fetchall()
 
 def value(v, key=None):
-    return Jsonb(v) if isinstance(v, dict) or isinstance(v, list) and key not in ('depends_on', 'plan_ids') else v
+    return Jsonb(json.loads(json.dumps(v, default=serial))) if isinstance(v, dict) or isinstance(v, list) and key not in ('depends_on', 'plan_ids') else v
 
 def insert(conn, table, row):
     schema, name = table.split(".")

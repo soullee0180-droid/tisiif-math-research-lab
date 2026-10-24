@@ -1142,3 +1142,4 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/79/36/f54b4a1cd9456ca0a65a76d77d181621433793aca633dfeed214748ff4f0/websockets-17.3-pp312-pypy312_pp80-win_amd64.whl", hash = "sha256:13eace1b315345ebac5b27821f5dcce24e5cf9976ab18f79e00a59bdd67e5d19", size = 306301, upload-time = "2026-10-19T16:58:03.161Z" },
     { url = "https://files.pythonhosted.org/packages/d7/b0/3f01fcb3406662f6deb1e3e72b34dd0979e993991c0b7435a9e12bc14f02/websockets-17.3-py3-none-any.whl", hash = "sha256:dc2b495a92b3971966bf102e73589f950db3ec1ca6713265355ce7771d97b199", size = 212375, upload-time = "2026-10-19T16:58:04.483Z" },
 ]
+

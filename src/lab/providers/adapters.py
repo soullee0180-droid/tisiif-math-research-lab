@@ -37,7 +37,8 @@ def mock_send(packet):
     phase=packet["stage"]
     schema=packet["response_schema"]
     if phase=="select":
-        obj={"selected_candidate_id":"C3","rationale_md":"Synthetic fixture selection.","risks_md":"Not a research result."}
+        ids=schema['properties']['selected_candidate_id']['enum']
+        obj={"selected_candidate_id":ids[min(2,len(ids)-1)],"rationale_md":"Synthetic fixture selection.","risks_md":"Not a research result."}
     elif phase=="generate":
         k=schema["properties"]["ideas"]["maxItems"]
         obj={"ideas":[{"candidate_id":"I"+str(i),"title":"Fixture idea "+str(i),

@@ -16,7 +16,7 @@ jobs:
           POSTGRES_DB: tisiif_test
         ports: ["5432:5432"]
         options: >-
-          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
     env:
       APP_ENV: test
       DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/tisiif_test
@@ -43,25 +43,36 @@ jobs:
           else
             npm ci
           fi
+      - name: Generate CLI-owned migration filenames
+        run: |
+          if [ ! -f supabase/config.toml ]; then npx --yes supabase@2.122.0 init; fi
+          if ! ls supabase/migrations/*_initial_research_contract.sql >/dev/null 2>&1; then
+            npx --yes supabase@2.122.0 migration new initial_research_contract
+            cp contracts/001_schema.sql supabase/migrations/*_initial_research_contract.sql
+          fi
+          if ! ls supabase/migrations/*_render_runtime.sql >/dev/null 2>&1; then
+            npx --yes supabase@2.122.0 migration new render_runtime
+            cp scripts/runtime-schema.sql supabase/migrations/*_render_runtime.sql
+          fi
       - name: Persist initial reproducible locks
         if: github.event_name == 'push'
         run: |
           git config user.name "TISIIF dependency lock"
           git config user.email "actions@users.noreply.github.com"
-          git add uv.lock apps/web/package.json apps/web/package-lock.json
+          git add uv.lock apps/web/package.json apps/web/package-lock.json supabase
           if ! git diff --cached --quiet; then
             git commit -m "build: lock verified runtime dependencies"
             git push
           fi
       - name: Verify specification contracts
-        run: uv run python verification/check_contracts.py
+        run: uv run python scripts/check_spec.py
       - name: Python syntax and application tests
         run: |
           uv run python -m compileall -q src
           if [ -d tests/unit ]; then uv run pytest -q tests; fi
       - name: Generate frontend API types
         run: |
-          if [ -f src/lab/api/app.py ]; then uv run python scripts/export_openapi.py; fi
+          if [ -f src/lab/api/app.py ]; then uv run python scripts/export_openapi.py; cd apps/web; npm run generate-types; fi
       - name: Frontend tests and production build
         working-directory: apps/web
         run: |
@@ -76,17 +87,19 @@ jobs:
       - name: Capture dependency and test artifacts
         if: always()
         run: |
-          mkdir -p .test-artifacts
-          cp -f uv.lock .test-artifacts/ 2>/dev/null || true
-          cp -f apps/web/package.json apps/web/package-lock.json .test-artifacts/ 2>/dev/null || true
-          if [ -d apps/web/node_modules ]; then tar -czf .test-artifacts/node-modules.tar.gz -C apps/web node_modules; fi
+          mkdir -p verification-artifacts
+          cp -f uv.lock verification-artifacts/ 2>/dev/null || true
+          cp -f apps/web/package.json apps/web/package-lock.json verification-artifacts/ 2>/dev/null || true
+          if [ -d apps/web/node_modules ]; then tar -czf verification-artifacts/node-modules.tar.gz -C apps/web node_modules; fi
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: verification-and-dependencies
           path: |
-            .test-artifacts
+            verification-artifacts
             docs/TEST_REPORT.md
+            docs/openapi.json
+            apps/web/src/api/generated.d.ts
             apps/web/dist
             test-results
             playwright-report

@@ -6,7 +6,7 @@ from uuid import uuid4
 from datetime import datetime, timezone
 import httpx
 from lab.config import settings
-from lab.db import insert, one
+from lab.db import insert, one, transaction
 
 class Storage:
     def __init__(self):
@@ -85,4 +85,60 @@ class Storage:
             created_by=user["user_id"], verified_at=datetime.now(timezone.utc)))
         self.put(bucket, name, data, mime)
         return row
+
+    def persist(self, user, kind, data, filename, mime, bucket=None, ident=None):
+        bucket = bucket or ('lab-prepared' if kind in ('prepared_pdf','page_png') else
+            'lab-exports' if kind in ('export','research_backup') else 'lab-artifacts')
+        ident = ident or uuid4()
+        name = str(user['workspace_id'])+'/'+str(ident)+'/'+filename
+        sha = hashlib.sha256(data).hexdigest()
+        try:
+            self.put(bucket,name,data,mime)
+        except Exception:
+            # A deterministic retry may encounter the identical already-written object.
+            if hashlib.sha256(self.get({'bucket':bucket,'object_path':name})).hexdigest()!=sha:
+                raise ValueError('IMMUTABLE_OBJECT_MISMATCH') from None
+        with transaction() as conn:
+            old=one(conn,'select * from lab.assets where id=%s and workspace_id=%s',(ident,user['workspace_id']))
+            if old:
+                if old['sha256']!=sha:raise ValueError('IMMUTABLE_ASSET_MISMATCH')
+                return old
+            return insert(conn,'lab.assets',dict(id=ident,workspace_id=user['workspace_id'],kind=kind,
+                bucket=bucket,object_path=name,original_name=filename,mime_type=mime,sha256=sha,
+                byte_size=len(data),status='verified',created_by=user['user_id'],verified_at=datetime.now(timezone.utc)))
+
+    def download_to(self,asset,path):
+        import shutil
+        if self.local:
+            shutil.copyfile(self.local/self.path(asset['bucket'],asset['object_path']),path)
+        else:
+            with httpx.Client(timeout=600) as client:
+                with client.stream('GET',self.cfg.supabase_url+'/storage/v1/object/'+self.path(asset['bucket'],asset['object_path']),headers=self.headers) as r:
+                    r.raise_for_status()
+                    with open(path,'wb') as out:
+                        for chunk in r.iter_bytes(1024*1024):out.write(chunk)
+        h=hashlib.sha256()
+        with open(path,'rb') as f:
+            for block in iter(lambda:f.read(1024*1024),b''):h.update(block)
+        if asset.get('sha256') and h.hexdigest()!=asset['sha256']:
+            raise ValueError('ASSET_HASH_MISMATCH')
+
+    def persist_path(self,user,kind,path,filename,mime,bucket='lab-exports'):
+        import shutil
+        path=Path(path)
+        ident=uuid4();name=str(user['workspace_id'])+'/'+str(ident)+'/'+filename
+        h=hashlib.sha256()
+        with path.open('rb') as f:
+            for chunk in iter(lambda:f.read(1024*1024),b''):h.update(chunk)
+        if self.local:
+            target=self.local/self.path(bucket,name);target.parent.mkdir(parents=True,exist_ok=True)
+            shutil.copyfile(path,target)
+        else:
+            with path.open('rb') as f:
+                self.request('POST','/object/'+self.path(bucket,name),content=f,
+                    headers={**self.headers,'Content-Type':mime,'Content-Length':str(path.stat().st_size),'x-upsert':'false'})
+        with transaction() as conn:
+            return insert(conn,'lab.assets',dict(id=ident,workspace_id=user['workspace_id'],kind=kind,
+                bucket=bucket,object_path=name,original_name=filename,mime_type=mime,sha256=h.hexdigest(),
+                byte_size=path.stat().st_size,status='verified',created_by=user['user_id'],verified_at=datetime.now(timezone.utc)))
 

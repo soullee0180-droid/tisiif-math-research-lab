@@ -10,6 +10,7 @@ __pycache__/
 *.log
 .local/
 .test-artifacts/
+verification-artifacts/
 apps/web/dist/
 playwright-report/
 test-results/

@@ -113,6 +113,7 @@ class RuntimeBody(Body):
     rpm_limit: int | None = Field(default=None, gt=0)
     tpm_limit: int | None = Field(default=None, gt=0)
     clear_block: bool = False
+    eligibility_confirmed: bool | None = None
 
 class MemberBody(Body):
     email: str

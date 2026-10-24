@@ -106,9 +106,13 @@ def parse_output(text, phase, protocol, k):
         for key, v in row.items():
             if isinstance(v, str) and key not in ("unable_reason",) and not v.strip():
                 raise ValueError("EMPTY_REQUIRED_STRING")
-        if phase == "usefulness" and (row["score"] is None or type(row["score"]) is not int):
-            if row["score"] is not None or not (row.get("unable_reason") or "").strip():
-                raise ValueError("INVALID_SCORE_OR_NULL_REASON")
+        if phase == "usefulness":
+            score = row["score"]
+            if score is None:
+                if not (row.get("unable_reason") or "").strip():
+                    raise ValueError("INVALID_SCORE_OR_NULL_REASON")
+            elif type(score) is not int or not 0 <= score <= 4:
+                raise ValueError("SCORE_OUT_OF_RANGE")
         if phase == "agreement" and row["label"] == "undetermined" and not (row.get("unable_reason") or "").strip():
             raise ValueError("UNDETERMINED_WITHOUT_REASON")
     return obj

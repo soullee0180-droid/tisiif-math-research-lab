@@ -92,6 +92,7 @@ def claim(worker):
                 where j.provider=%s and a.sent_at>now()-interval '60 seconds'""",(provider,))
             if runtime['rpm_limit'] and len(recent)>=runtime['rpm_limit']: continue
             query=(ROOT/'contracts/002_claim_job.sql').read_text()
+            query=query.replace("p.status in ('running','scheduled')", "p.status in ('running','scheduled','partial')")
             # Contract claim additionally restricts this worker to its configured active workspace.
             query=query.replace("where j.provider = %(provider)s", "where j.workspace_id = %(workspace)s and j.provider = %(provider)s")
             if '%(workspace)s' not in query:
@@ -115,7 +116,7 @@ def claim(worker):
                 attempt=insert(conn,'lab.attempts',dict(id=uuid4(),workspace_id=job['workspace_id'],job_id=job['id'],
                     attempt_no=n,status='started',transport=run['transport'],requested_model=model['model_id'],
                     normalized_settings={'reserved_tokens':reservation,'reservation_is_estimate':True,'profile':model}))
-            conn.execute('update lab.plans set last_dispatched_at=now(),started_at=coalesce(started_at,now()) where workspace_id=%s and id=%s',(ws,job['plan_id']))
+            conn.execute("update lab.plans set last_dispatched_at=now(),started_at=coalesce(started_at,now()),status=case when status='scheduled' then 'running' else status end where workspace_id=%s and id=%s",(ws,job['plan_id']))
             conn.execute('update lab_private.provider_runtime set next_dispatch_at=now()+make_interval(secs=>min_interval_seconds) where provider=%s',(provider,))
             return job,attempt
     with transaction() as conn:
@@ -262,7 +263,7 @@ def record_failure(job,attempt,error):
         else:
             cls='storage_or_processing'
             state='unknown_remote' if current['status'] in ('dispatching','submitted','waiting_remote') else 'failed'
-            message='処理を完了できませんでした。' if False else '처리를 완료하지 못했습니다. 저장 상태를 확인해 주세요.'
+            message='처리를 완료하지 못했습니다. 저장 상태를 확인해 주세요.'
             seconds=None
         conn.execute("update lab.jobs set status=%s,error_class=%s,error_message=%s,available_at=now()+make_interval(secs=>%s),lease_owner=null,lease_expires_at=null,updated_at=now() where id=%s and workspace_id=%s",
                      (state,cls,message,seconds or 0,job['id'],ws))
