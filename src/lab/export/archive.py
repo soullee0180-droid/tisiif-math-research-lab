@@ -29,7 +29,7 @@ def safe_cell(cell,value):
     cell.value=value
     if isinstance(value,str):cell.data_type="s"
 
-def write_excel(rows,reviews,target,long_texts=None):
+def write_excel(rows,reviews,target,long_texts=None,common=True):
     long_texts=long_texts if long_texts is not None else {}
     wb=Workbook();wb.remove(wb.active)
     for name in SHEETS:wb.create_sheet(name)
@@ -59,7 +59,7 @@ def write_excel(rows,reviews,target,long_texts=None):
     summary=[]
     groups=sorted({r["group_hash"] for r in rows})
     for group in groups:
-        agg=summarize(rows,True,group)
+        agg=summarize(rows,common,group)
         for provider,values in agg["summary"].items():
             for metric,result in values.items():
                 summary.append([group,provider,metric,result["value"],result["eligible_runs"],result["total_runs"],
@@ -145,6 +145,9 @@ def write_archive(user,filters,path,include_source=True,external=False,backup=Fa
         conn.execute("set transaction isolation level repeatable read, read only")
         data,assets,rows=gather(conn,user,filters,include_source and not external,backup)
         reviews=data["human_reviews"]
+        expected=filters.get("analysis_hash")
+        if expected and summarize(rows,filters.get("common",True),filters.get("group_hash") or None)["analysis_hash"]!=expected:
+            raise ValueError("ANALYSIS_SNAPSHOT_CHANGED")
     if external:
         def scrub(obj):
             if isinstance(obj,dict):
@@ -166,7 +169,7 @@ def write_archive(user,filters,path,include_source=True,external=False,backup=Fa
             add(z,"data/"+table+".jsonl",b"".join((canonical(r)+"\n").encode() for r in records))
         long={}
         excel=io.BytesIO()
-        write_excel(rows,reviews,excel,long)
+        write_excel(rows,reviews,excel,long,common=filters.get("common",True))
         add(z,"results.xlsx",excel.getvalue())
         for name,blob in long.items():add(z,name,blob)
         for a in assets:
@@ -183,7 +186,7 @@ def write_archive(user,filters,path,include_source=True,external=False,backup=Fa
             if p.name=="deployment-config.template.json" or p.name=="env-contract.json":continue
             add(z,"protocols/"+str(p.relative_to(ROOT/"contracts")),p.read_bytes())
         for group in {r["group_hash"] for r in rows}:
-            add(z,"analysis/"+group+".json",canonical(summarize(rows,True,group)).encode())
+            add(z,"analysis/"+group+".json",canonical(summarize(rows,filters.get("common",True),group)).encode())
         z.writestr("manifest.json",canonical(manifest))
     return manifest
 

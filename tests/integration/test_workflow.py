@@ -69,6 +69,8 @@ def test_full_flow_permissions_blinding_excel_restore(client,tmp_path):
     with transaction() as conn:a=one(conn,'select * from lab.assets where id=%s',(result['asset_id'],))
     book=load_workbook(io.BytesIO(Storage().get(a)),data_only=True)
     assert len(book.sheetnames)==10 and book['후보_아이디어'].max_row==31
+    bad=client.post('/api/v1/exports',json={'kind':'xlsx','filters':{**filters,'analysis_hash':'outdated-snapshot'},'include_source':False},headers={'Idempotency-Key':str(uuid4())})
+    assert bad.status_code==409 and bad.json()['error']['code']=='ANALYSIS_CHANGED'
     assert all(w.freeze_panes=='A2' for w in book)
     from lab.export.archive import write_archive,verify_archive,restore_archive
     actor={'workspace_id':WS,'user_id':ADMIN}

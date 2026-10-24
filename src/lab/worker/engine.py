@@ -88,9 +88,10 @@ def claim(worker):
             if runtime['next_dispatch_at']>now or runtime['paused_until'] and runtime['paused_until']>now: continue
             active=one(conn,"select count(*) n from lab.jobs where provider=%s and status in ('leased','dispatching','submitted','waiting_remote')",(provider,))['n']
             if active>=runtime['max_concurrency']: continue
-            recent=many(conn,"""select a.normalized_settings from lab.attempts a join lab.jobs j on j.id=a.job_id
-                where j.provider=%s and a.sent_at>now()-interval '60 seconds'""",(provider,))
-            if runtime['rpm_limit'] and len(recent)>=runtime['rpm_limit']: continue
+            recent=one(conn,"""select count(*) n,coalesce(sum((a.normalized_settings->>'reserved_tokens')::bigint),0) tokens
+                from lab.attempts a join lab.jobs j on j.id=a.job_id
+                where j.provider=%s and a.sent_at>now()-interval '60 seconds'""",(provider,)) if runtime['rpm_limit'] or runtime['tpm_limit'] else {'n':0,'tokens':0}
+            if runtime['rpm_limit'] and recent['n']>=runtime['rpm_limit']: continue
             query=(ROOT/'contracts/002_claim_job.sql').read_text()
             query=query.replace("p.status in ('running','scheduled')", "p.status in ('running','scheduled','partial')")
             # Contract claim additionally restricts this worker to its configured active workspace.
@@ -106,7 +107,7 @@ def claim(worker):
             model=run['generator_model'] if not job['judge_provider'] else run['judge_models'][job['judge_provider']]
             cap=model.get('config',{}).get('max_visible_output_target_by_stage',{}).get(job['phase'],8000)
             reservation=cap+model.get('capabilities',{}).get('estimated_input_reservation',32000)
-            used=sum(r['normalized_settings'].get('reserved_tokens',0) for r in recent)
+            used=recent['tokens']
             if runtime['tpm_limit'] and used+reservation>runtime['tpm_limit']:
                 conn.execute("update lab.jobs set status='waiting_rate',available_at=now()+interval '10 seconds',lease_owner=null,lease_expires_at=null where id=%s",(job['id'],))
                 continue

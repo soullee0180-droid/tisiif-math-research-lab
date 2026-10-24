@@ -1,7 +1,7 @@
 from uuid import UUID, uuid4
 from fastapi import APIRouter, Depends, Request
 from lab.api.auth import current_user
-from lab.api.common import get, idempotent
+from lab.api.common import get, idempotent,fail
 from lab.api.types import ExportBody
 from lab.api.papers import aux
 from lab.db import transaction, insert, many
@@ -39,9 +39,13 @@ def ideas(plan_id:str="",transport:str="api",include_fixture:bool=False,include_
 @router.post("/exports")
 def export(body:ExportBody,request:Request,user=Depends(current_user)):
     with transaction() as conn:
+        conn.execute("set transaction isolation level repeatable read")
         def create(key):
-            # Resolve selected scope before queueing; no AI requests are triggered by exports.
+            # Resolve scope and analysis snapshot before queueing; no inference is triggered.
             rows=selected_runs(conn,user,body.filters)
+            expected=body.filters.get("analysis_hash")
+            actual=summarize(rows,body.filters.get("common",True),body.filters.get("group_hash") or None)["analysis_hash"]
+            if expected and actual!=expected:fail("ANALYSIS_CHANGED","평가 자료가 변경되었습니다. 결과를 새로 확인하고 다운로드해 주세요.",409)
             frozen_filters={**body.filters,"plan_ids":sorted({str(r["plan_id"]) for r in rows})}
             row=insert(conn,"lab.exports",dict(id=uuid4(),workspace_id=user["workspace_id"],
                 kind=body.kind,filters=frozen_filters,created_by=user["user_id"]))

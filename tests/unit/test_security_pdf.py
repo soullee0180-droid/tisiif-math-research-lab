@@ -78,3 +78,11 @@ def test_zip_traversal_rejected(tmp_path,name):
     with ZipFile(p,"w") as z:z.writestr(name,"bad");z.writestr("manifest.json",json.dumps({"schema_version":"2.0","files":{}}))
     with pytest.raises(ValueError):verify_archive(p)
 
+
+
+def test_modern_storage_secret_is_not_used_as_jwt(monkeypatch):
+    from lab.storage.client import Storage
+    monkeypatch.setattr(settings(),'supabase_server_secret','sb_secret_SYNTHETIC_FIXTURE')
+    assert Storage().headers=={'apikey':'sb_secret_SYNTHETIC_FIXTURE'}
+    monkeypatch.setattr(settings(),'supabase_server_secret','legacy.synthetic.jwt')
+    assert Storage().headers['Authorization']=='Bearer legacy.synthetic.jwt'

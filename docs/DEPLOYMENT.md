@@ -15,7 +15,7 @@
 | 실행기 | `lab-worker`, 동일 Dockerfile·SHA, `1c-2g`, Singapore |
 | 실행기 디스크 후보 | 20GB, `/var/backups/tisiif` |
 
-운영 서비스 URL과 실제 월 견적은 아직 확정되지 않았습니다. Render 플러그인은 worker·Blueprint 생성 기능을 제공하지 않으므로 실제 두 서비스 생성은 Blueprint Dashboard 또는 지원되는 CLI/API로 진행합니다. 서비스를 하나의 웹 프로세스로 합치지 않습니다.
+운영 서비스 URL과 실제 계정 견적은 아직 확정되지 않았습니다. 현재 공개 가격표 기준 웹 $7 + worker $25 + 20GB 디스크 $5 = 월 $37 후보입니다. 세금·대역폭 초과·별도 workspace 요금·Supabase·모델 API 비용은 포함하지 않습니다. 실제 계정 견적과 사용자 승인을 확인해야 합니다. Render 플러그인은 worker·Blueprint 생성 기능을 제공하지 않으므로 실제 두 서비스 생성은 Blueprint Dashboard 또는 지원되는 CLI/API로 진행합니다. 서비스를 하나의 웹 프로세스로 합치지 않습니다.
 
 ## 최초 배포 순서
 

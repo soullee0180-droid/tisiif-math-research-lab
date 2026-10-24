@@ -75,8 +75,12 @@ def process_aux(job):
                         rows=selected_runs(conn,actor,export["filters"])
                         ids=[i["id"] for r in rows for i in r["ideas"]]
                         reviews=many(conn,"select h.* from lab.human_reviews h join lab.review_assignments a on a.id=h.assignment_id where h.workspace_id=%s and a.idea_id=any(%s::uuid[])",(ws,ids))
+                    from lab.export.analysis import summarize
+                    expected=export["filters"].get("analysis_hash")
+                    if expected and summarize(rows,export["filters"].get("common",True),export["filters"].get("group_hash") or None)["analysis_hash"]!=expected:
+                        raise ValueError("ANALYSIS_SNAPSHOT_CHANGED")
                     texts={};path=root/"results.xlsx"
-                    n=write_excel(rows,reviews,path,texts)
+                    n=write_excel(rows,reviews,path,texts,common=export["filters"].get("common",True))
                     if n:
                         import zipfile
                         longpath=root/"long-text.zip"

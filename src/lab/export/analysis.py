@@ -81,5 +81,5 @@ def summarize(rows,common=True,group_hash=None):
             "eligibility":[{"run_id":r["id"],"paper_id":r["paper_id"],"revision_id":r["checkpoint_revision_id"],
                 "provider":r["generator_provider"],"repeat_no":r["repeat_no"],"metrics":r["metrics"],
                 "status":r["status"],"judges":list(r["judge_models"])} for r in selected_rows],
-            "run_count":len(selected_rows),"analysis_hash":digest([selected,common,[str(r["id"]) for r in selected_rows]])}
+            "run_count":len(selected_rows),"analysis_hash":digest([selected,common,[{"id":str(r["id"]),"metrics":r["metrics"],"accepted_attempt_ids":sorted(str(j["accepted_attempt_id"]) for j in r["jobs"] if j["accepted_attempt_id"])} for r in selected_rows]])}
 

@@ -15,3 +15,6 @@
 - backup은 연구 행과 실제 원본·prepared·요청/응답 파일을 함께 담습니다. 복원은 새 비활성 공간에 수행하며 계획을 일시정지합니다. 재생성 가능한 export/backup 작업은 이력을 남기고 취소 상태로 복원합니다. API 키와 서버 비밀값은 연구 export/backup에 포함하지 않으므로 별도 보관·재입력이 필요합니다.
 - 40MiB를 넘는 archive는 bounded binary part와 전체/부분 SHA256 manifest로 저장합니다. 분할 파일은 모두 내려받아야 합니다. 버킷의 선언된 한도와 프로젝트 전체 한도는 다르므로 실제 계정 설정을 배포 시 확인합니다.
 - `lab_private`에 RLS를 켜고 브라우저 정책을 주지 않는 것은 의도한 전체 차단입니다. Supabase의 해당 INFO 안내를 해소하려고 공개 정책을 추가하지 않습니다.
+
+- Supabase의 modern secret key는 `apikey` 헤더에만 넣습니다. JWT 형식인 이전 service-role 키에만 Bearer 헤더를 병행합니다. 신규 secret을 JWT로 파싱하여 거부하는 문제를 방지합니다.
+- 분석 hash에는 현재 지표와 accepted attempt ID를 포함합니다. Excel의 공통/가용 비교 옵션을 화면과 동일하게 적용하고, 요청 이후 응답이 추가되어 snapshot이 달라지면 원래 분석과 같은 파일이라고 표시하지 않고 다시 확인하도록 합니다.

@@ -63,7 +63,7 @@ export function ResultsPage(){
  const exported=useData('/exports/'+exportId,true,!!exportId);
  useEffect(()=>{const r=exported.data;if(r?.status==='completed'&&exportDone!==exportId){setExportDone(exportId);downloadAsset(r.asset_id);if(r.metadata?.companion_asset_id)setCompanion(r.metadata.companion_asset_id)}},[exported.data,exportId]);
  async function exportKind(kind:string){
-  const result=await action.act(()=>api('/exports',{kind,filters:{plan_id:plan,transport,include_fixture:fixture,include_human_corrected:corrected,common,group_hash:group,paper_id:paper,checkpoint_revision_id:revision,generator_provider:generator,repeat_no:repeat||'0',status,review_flag:flag},include_source:kind!=='external_zip'}));
+  const result=await action.act(()=>api('/exports',{kind,filters:{plan_id:plan,transport,include_fixture:fixture,include_human_corrected:corrected,common,group_hash:group||summary.data?.selected_group||'',analysis_hash:summary.data?.analysis_hash,paper_id:paper,checkpoint_revision_id:revision,generator_provider:generator,repeat_no:repeat||'0',status,review_flag:flag},include_source:kind!=='external_zip'}));
   if(result){setExportId(result.export_id);setZip(false)}
  }
  async function createBatch(){const r=await action.act(()=>api('/review-batches',{plan_ids:[plan],reviewer_ids:reviewers,seed,per_stratum:5}));if(r){setBatch(false);assigned.refetch()}}

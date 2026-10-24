@@ -14,8 +14,10 @@ class Storage:
         if self.cfg.local_storage_dir and self.cfg.app_env not in ("test",):
             raise RuntimeError("LOCAL_STORAGE_TEST_ONLY")
         self.local = Path(self.cfg.local_storage_dir) if self.cfg.local_storage_dir else None
-        self.headers = {"apikey": self.cfg.supabase_server_secret,
-                        "Authorization": "Bearer " + self.cfg.supabase_server_secret}
+        self.headers = {"apikey": self.cfg.supabase_server_secret}
+        # Modern sb_secret keys are API keys, not JWT bearer tokens.
+        if not self.cfg.supabase_server_secret.startswith("sb_secret_"):
+            self.headers["Authorization"]="Bearer "+self.cfg.supabase_server_secret
 
     def path(self, bucket, name):
         if bucket not in ("lab-source","lab-prepared","lab-artifacts","lab-exports"):
