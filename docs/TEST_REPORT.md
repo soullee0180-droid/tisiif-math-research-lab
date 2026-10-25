@@ -5,7 +5,10 @@
 - 실제 Supabase: API v4 ACTIVE, 공개 migration 적용, Google identity 함수 제거, 제공사 예산 $0·OFF, 무인증 /me·papers 200, settings 403, CORS * 확인.
 - 실제 cloud-browser에서 새 UI가 실제 Supabase의 빈 논문 목록을 인증 없이 표시함을 확인. 상단 네 메뉴·흰 배경이며 Google/초대/계정/사이드바 화면 없음.
 - Supabase REST에서 사용량 UPDATE의 WHERE 누락 오류(21000)를 발견하고 singleton WHERE로 수정. SQL 직접 호출만으로 검수 완료를 주장하지 않음.
-- 신규 전체 GitHub CI 결과는 DEPLOYMENT_LEDGER.json에 기록. Cloudflare Pages 실제 최종 URL 확인 전에는 프런트 게시 완료라고 주장하지 않음.
+- 전체 GitHub CI **40147864591 PASS** (source 21bb701): 실제 PostgreSQL 17 동시성, 7,200 mock logical jobs/14,400 raw, build/Deno, 무인증 수동 UI·390px 모바일·PDF Worker/독립 pypdf 검수 포함.
+- Cloudflare Pages **https://tisiif-math-research-lab.pages.dev** production branch free/v3-from-scratch, source 21bb701 배포 완료를 Dashboard와 실제 사이트에서 확인. 새로고침·논문·계획·큐·분석 모두 로그인 없이 정상.
+- 실제 무인증 paper_create 200 후 점검용 paper만 정확한 ID/title/metadata 조건으로 정리했고 audit는 보존. 빈 mock step 200, real_provider_calls 0.
+- 실제 TUS 및 별도 운영 설정을 필요로 하는 브라우저 종료 후 cron은 추가 검수 대상.
 
 아래는 이전 비공개판의 회귀 검수 기록입니다. Google 3계정·이메일 초대 검수는 새 공개판의 요건이 아닙니다.
 

@@ -1,5 +1,7 @@
 # TISIIF Math Research Lab · 공개판 3.1
 
+**사이트: https://tisiif-math-research-lab.pages.dev**
+
 주소로 바로 접속하는 공개 공동 연구 공간입니다. Google 로그인·회원가입·이메일 초대·로그아웃 기능이 없습니다. 방문자는 같은 논문·분기점·실험 결과를 보고 편집합니다.
 
 React / Vite 정적 앱 + Supabase Free PostgreSQL·private Storage·Edge Functions, Cloudflare Pages Free를 사용합니다. 흰 배경과 상단 메뉴 네 개로 화면을 단순화했습니다. Railway·Render·유료 플랜은 사용하지 않습니다.

@@ -1,5 +1,7 @@
 # 공개판 배포
 
+게시 주소: https://tisiif-math-research-lab.pages.dev (production branch free/v3-from-scratch). 현재 DB·API·Pages 배포와 무인증 화면을 확인했습니다. 아래 절차는 재현·운영용입니다.
+
 Google OAuth·이메일 초대·앱 로그인·Auth redirect 설정은 필요하지 않습니다. 기존 Cloudflare 계정 로그인은 호스팅 관리용이며 사이트 이용자 로그인과 별개입니다.
 
 이미 연결된 Supabase 프로젝트: `bugnhvehtrsgehgnhlvm`. 기존 schema·bootstrap을 다시 실행하거나 reset하지 않습니다. 원격 migration 이력은 `DEPLOYMENT_LEDGER.json`과 비교합니다.

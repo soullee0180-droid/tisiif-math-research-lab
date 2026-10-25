@@ -109,27 +109,26 @@
     "provider_budget_usd": 0
   },
   "remaining": [
-    "Cloudflare Pages frontend publishing / actual pages.dev URL confirmation",
-    "actual TUS upload and browser-close cron verification (optional operator configuration)"
+    "actual TUS upload verification",
+    "browser-close cron verification only if optional operator scheduler is configured"
   ],
   "security_advisors": [
     {
       "name": "rls_enabled_no_policy",
       "level": "INFO",
-      "count": 45,
+      "count": 46,
       "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy"
     }
   ],
   "cloudflare_auth": {
-    "status": "BLOCKED",
-    "visible_error": "API Request Failed: post https://dash.cloudflare.com/api/v4/login (403)",
-    "signed_in": false,
-    "next": "Use the existing PC login to create/deploy Pages if no Git-connected Pages project exists; app Google OAuth is no longer needed."
+    "cloud_browser_status": "BLOCKED_403",
+    "pc_browser_status": "SIGNED_IN_AND_PAGES_DEPLOYED",
+    "application_auth": "REMOVED"
   },
   "previous_verified_source_commit": "d246ab3a62f5f734c8ea2ee733ced304dcb9f805",
   "previous_verified_ci_run": 40142289144,
-  "public_source_commit": "pending_git_upload",
-  "public_ci_run": null,
+  "public_source_commit": "21bb701688ae24e4a7edea54d9fbecaebe14d921",
+  "public_ci_run": 40147864591,
   "access": "public_no_login",
   "public_cloud_verification": {
     "me_without_auth": 200,
@@ -138,6 +137,24 @@
     "cors": "*",
     "direct_anon_rpc": "denied",
     "old_google_identity_function": "removed",
-    "actual_model_calls": 0
+    "actual_model_calls": 0,
+    "paper_create_without_auth": 200,
+    "mock_step_without_auth": 200,
+    "synthetic_http_smoke_paper": "removed after verification; audit retained"
+  },
+  "public_ci_conclusion": "success",
+  "pages": {
+    "url": "https://tisiif-math-research-lab.pages.dev",
+    "project": "tisiif-math-research-lab",
+    "production_branch": "free/v3-from-scratch",
+    "verified_source_commit": "21bb701688ae24e4a7edea54d9fbecaebe14d921",
+    "deployment": "9d74f6e5-a609-4d8a-b3ee-7b63746de2dd",
+    "verified_without_login": [
+      "papers",
+      "experiments",
+      "queue",
+      "results",
+      "refresh"
+    ]
   }
 }
