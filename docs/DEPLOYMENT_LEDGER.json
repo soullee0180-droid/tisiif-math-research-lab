@@ -1,7 +1,5 @@
 {
   "project": "bugnhvehtrsgehgnhlvm",
-  "source_commit": "d246ab3a62f5f734c8ea2ee733ced304dcb9f805",
-  "verified_ci_run": 40142289144,
   "migrations": [
     {
       "version": "20261024020759",
@@ -90,10 +88,18 @@
     {
       "version": "20261024233243",
       "name": "v3_scheduler_install"
+    },
+    {
+      "version": "20261025003737",
+      "name": "public_access_without_login"
+    },
+    {
+      "version": "20261025004148",
+      "name": "safe_usage_singleton_update"
     }
   ],
   "edge_functions": {
-    "api": 1,
+    "api": 4,
     "dispatch": 1,
     "execute": 1
   },
@@ -103,10 +109,8 @@
     "provider_budget_usd": 0
   },
   "remaining": [
-    "Cloudflare login and Pages publishing",
-    "Supabase secure secrets and Google OAuth configuration",
-    "two team member email addresses and individual login tests",
-    "actual cloud scheduled mock, TUS and backup tests"
+    "Cloudflare Pages frontend publishing / actual pages.dev URL confirmation",
+    "actual TUS upload and browser-close cron verification (optional operator configuration)"
   ],
   "security_advisors": [
     {
@@ -120,6 +124,20 @@
     "status": "BLOCKED",
     "visible_error": "API Request Failed: post https://dash.cloudflare.com/api/v4/login (403)",
     "signed_in": false,
-    "next": "manual authentication in the same Cloud Browser tab; no automated retry"
+    "next": "Use the existing PC login to create/deploy Pages if no Git-connected Pages project exists; app Google OAuth is no longer needed."
+  },
+  "previous_verified_source_commit": "d246ab3a62f5f734c8ea2ee733ced304dcb9f805",
+  "previous_verified_ci_run": 40142289144,
+  "public_source_commit": "pending_git_upload",
+  "public_ci_run": null,
+  "access": "public_no_login",
+  "public_cloud_verification": {
+    "me_without_auth": 200,
+    "papers_without_auth": 200,
+    "settings_without_auth": 403,
+    "cors": "*",
+    "direct_anon_rpc": "denied",
+    "old_google_identity_function": "removed",
+    "actual_model_calls": 0
   }
 }

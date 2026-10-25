@@ -1,3 +1,14 @@
+# 공개판 3.1 검수
+
+- TypeScript, 단위 32개, 기존 SQL와 36-job pipeline 통과.
+- 새 public-access integration: 무인증 공유 actor, 공용 작성, idempotency, 위조 actor/workspace 무시, 관리 endpoint 차단, anon 직접 RPC 차단, 18 mock jobs / 36 raw files, 모델 네트워크 0, 요청 한도 429 통과.
+- 실제 Supabase: API v4 ACTIVE, 공개 migration 적용, Google identity 함수 제거, 제공사 예산 $0·OFF, 무인증 /me·papers 200, settings 403, CORS * 확인.
+- 실제 cloud-browser에서 새 UI가 실제 Supabase의 빈 논문 목록을 인증 없이 표시함을 확인. 상단 네 메뉴·흰 배경이며 Google/초대/계정/사이드바 화면 없음.
+- Supabase REST에서 사용량 UPDATE의 WHERE 누락 오류(21000)를 발견하고 singleton WHERE로 수정. SQL 직접 호출만으로 검수 완료를 주장하지 않음.
+- 신규 전체 GitHub CI 결과는 DEPLOYMENT_LEDGER.json에 기록. Cloudflare Pages 실제 최종 URL 확인 전에는 프런트 게시 완료라고 주장하지 않음.
+
+아래는 이전 비공개판의 회귀 검수 기록입니다. Google 3계정·이메일 초대 검수는 새 공개판의 요건이 아닙니다.
+
 # 검수 기록
 
 2026-10-24. 아래 PASS는 실제 실행한 범위에만 해당한다. Cloudflare 공개 배포와 실제 팀 OAuth가 끝났다는 의미가 아니다.

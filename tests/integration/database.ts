@@ -5,7 +5,7 @@ const db=await database();const call=rpc(db);const w=crypto.randomUUID(),a=crypt
 await db.query('insert into lab.workspaces(id,name,active) values($1,$2,true)',[w,'Local fixture only']);
 await db.query("insert into lab_private.email_allowlist values($1,'admin@fixture.invalid','admin',true),($1,'team@fixture.invalid','researcher',true)",[w]);
 await db.query('insert into lab.protocol_versions(workspace_id,body,sha256) values($1,$2,$3)',[w,protocol,'fixture']);
-await call('lab_identity',{a,email_verified:'admin@fixture.invalid'});await call('lab_identity',{a:b,email_verified:'team@fixture.invalid'});
+await db.query("insert into lab.members(workspace_id,id,id_email,role) values($1,$2,'admin@fixture.invalid','admin'),($1,$3,'team@fixture.invalid','researcher')",[w,a,b]);
 const write=(action:string,p:any,actor=a,key=crypto.randomUUID())=>call('lab_write',{w,a:actor,action,p,idem:key});
 const paper=await write('paper_create',{title:'Synthetic test paper'});const cp=await write('checkpoint_create',{paper_id:paper.id,title:'Synthetic checkpoint',body:{input_mode:'text',goal:'Fixture goal',obstacle:'Fixture obstacle',public_text:'PUBLIC_CANARY',reference_idea_md:'SECRET_CANARY',reference_location:'page 1',steps:[]}});
 await assert.rejects(write('revision_approve',{id:cp.id,if_match:1}),/APPROVAL_CHECKS_REQUIRED/);

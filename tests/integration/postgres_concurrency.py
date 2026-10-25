@@ -27,7 +27,7 @@ for path in sorted((root / 'supabase/migrations').glob('*.sql')):
 w, a = str(uuid.uuid4()), str(uuid.uuid4())
 protocol = json.loads((root / 'packages/contracts/research-protocol.json').read_text())
 sql(f"insert into lab.workspaces(id,name,active) values({quote(w)},'CI contention fixture',true);insert into lab_private.email_allowlist values({quote(w)},'concurrency@fixture.invalid','admin',true);insert into lab.protocol_versions(workspace_id,body,sha256) values({quote(w)},{quote(json.dumps(protocol))}::jsonb,'fixture');update lab_private.provider_runtime set min_interval_ms=0,rpm=100000,tpm=2000000000;")
-rpc('lab_identity', a=a, email_verified='concurrency@fixture.invalid')
+sql(f"insert into lab.members(workspace_id,id,id_email,role) values({quote(w)},{quote(a)},'concurrency@fixture.invalid','admin');")
 def write(action, p, idem=None):
     return rpc('lab_write', w=w, a=a, action=action, p=p, idem=idem or str(uuid.uuid4()))
 key = str(uuid.uuid4())
@@ -41,7 +41,7 @@ plan = write('plan_create', {'name': 'Concurrent claim fixture', 'k': 1, 'repeat
 write('plan_control', {'id': plan['id'], 'status': 'running'})
 b = str(uuid.uuid4())
 sql(f"insert into lab_private.email_allowlist values({quote(w)},'second@fixture.invalid','researcher',true);")
-rpc('lab_identity', a=b, email_verified='second@fixture.invalid')
+sql(f"insert into lab.members(workspace_id,id,id_email,role) values({quote(w)},{quote(b)},'second@fixture.invalid','researcher');")
 second = rpc('lab_write', w=w, a=b, action='plan_create', p={'name': 'Second owner fixture', 'k': 1, 'repeats': 1, 'cohort': 'fixture', 'transport': 'mock', 'revision_ids': [cp['id']]}, idem=str(uuid.uuid4()))
 rpc('lab_write', w=w, a=b, action='plan_control', p={'id': second['id'], 'status': 'running'}, idem=str(uuid.uuid4()))
 claims = [c for c in parallel(lambda _: rpc('lab_claim', provider_name='google'), 32) if c]
