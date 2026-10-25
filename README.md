@@ -1,26 +1,13 @@
-# TISIIF Math Research Lab · 공개판 3.1
+# TISIIF Math Research Lab · 3.2
 
-**사이트: https://tisiif-math-research-lab.pages.dev**
+사이트: https://tisiif-math-research-lab.pages.dev
 
-주소로 바로 접속하는 공개 공동 연구 공간입니다. Google 로그인·회원가입·이메일 초대·로그아웃 기능이 없습니다. 방문자는 같은 논문·분기점·실험 결과를 보고 편집합니다.
+로그인 없이 사용하는 공개 공동 연구 공간입니다. 논문·분기점·수동/모의/API 실험을 관리합니다. Google 계정이나 초대가 필요하지 않습니다. 모든 방문자가 자료와 공동 API 키의 실행 권한을 공유합니다.
 
-React / Vite 정적 앱 + Supabase Free PostgreSQL·private Storage·Edge Functions, Cloudflare Pages Free를 사용합니다. 흰 배경과 상단 메뉴 네 개로 화면을 단순화했습니다. Railway·Render·유료 플랜은 사용하지 않습니다.
+**API·프롬프트**에서 키·예산 → 모델 등록 → 4단계 실제 검증 → 모델 사용을 설정하고 실험 계획을 시작합니다. 기본 API 스위치는 OFF, 예산은 $0이며 키 원문은 저장 후 표시하지 않습니다. 모델 검증은 실제 요청 4회와 승인 입력을 사용합니다. 세 제공사의 검증 모델이 준비되어야 정식 비교 실험을 만들 수 있습니다. PDF는 별도 검증이 필요합니다.
 
-수동 웹 실험과 합성 mock 실험을 제공합니다. 공개 화면에서 실제 모델 API·예산·키·구성원·복원 관리 작업을 실행할 수 없습니다. 모의 작업은 실행 현황 또는 계획의 **모의 작업 진행** 버튼으로 최대 세 개씩 처리할 수 있습니다. 서버 cron을 별도로 연결하지 않아도 작동하며, 탭을 닫은 상태의 예약 실행은 별도 운영 설정이 필요합니다.
+생성·선택·유용성·일치도별 추가 지시를 편집할 수 있고, 실험별 설정이 불변 snapshot으로 저장됩니다. 서버 cron이 자동 실행하므로 브라우저를 닫아도 진행됩니다. 키가 없는 상태에서는 실제 호출이 발생하지 않습니다.
 
-등록한 원본 파일·기준 아이디어·결과도 모든 방문자가 볼 수 있습니다. 여기서 ‘공개 입력’은 모델에 보내는 입력이라는 뜻이며 웹사이트 접근 제한을 뜻하지 않습니다. 개인별 로그인 기록·독립 검토자 신원은 수집하지 않습니다. 예전 연구 데이터·Git 이력은 보존합니다.
+최신 명세 [03_SHARED_API.md](03_SHARED_API.md)가 이전 [02_PUBLIC_ACCESS.md](02_PUBLIC_ACCESS.md)의 API 차단 조건을 대체합니다. 무료 인프라 목표는 $0이며 실제 모델 요금은 제공사 계정에서 별도로 청구됩니다.
 
-```bash
-npm ci --ignore-scripts
-npm run check
-npm test
-npm run test:sql
-node --import tsx tests/integration/public-access.ts
-node --import tsx tests/integration/pipeline.ts
-npm run build
-npm run bundle:edge
-```
-
-환경 변수는 `.env.example`, 배포는 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)를 참고하세요. build 결과는 `apps/web/dist`입니다. 서비스 키와 서버 비밀은 프런트·저장소에 넣지 않습니다. DB 직접 접근은 계속 차단하고, 공개 Edge API에서 허용한 연구 작업만 제공합니다. 요청량·파일 크기·저장 용량·불변 결과 제한도 유지합니다.
-
-[02_PUBLIC_ACCESS.md](02_PUBLIC_ACCESS.md)가 원본 [01_MASTER_PROMPT.md](01_MASTER_PROMPT.md)의 로그인·초대·관리 화면 요구보다 우선합니다. 이전 문서의 Google 계정 검수는 공개판 배포 요건에서 제외되었습니다.
+검수: npm run check / npm test / npm run test:sql / node --import tsx tests/integration/shared-api.ts / npm run build / npm run bundle:edge. 배포는 docs/DEPLOYMENT.md, 실제 적용 이력은 docs/DEPLOYMENT_LEDGER.json을 참고하세요. 기존 DB를 reset하거나 전체 migration을 재적용하지 않습니다.

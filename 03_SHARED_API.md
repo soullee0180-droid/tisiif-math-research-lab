@@ -1,0 +1,11 @@
+# 공동 API 자동 실행과 단계별 추가 지시
+
+최신 사용자 요청에 따라 공개 방문자가 공동 API 키·예산을 사용하도록 허용한다. 이 명세는 02_PUBLIC_ACCESS.md의 실제 API 차단·관리 UI 제외 항목보다 우선한다. 로그인은 추가하지 않는다.
+
+- /api-settings에서 Google/OpenAI/Anthropic 공동 키, 예산, 모델, 호출 한도, 네 단계 추가 지시를 관리한다. 키는 서버 AES-GCM으로 암호화하며 원문은 다시 반환하지 않는다. master와 scheduler secret은 Vault의 고정 이름으로만 읽고 해당 RPC는 service_role에만 허용한다. Vault 값은 코드·migration·업무 백업에 포함하지 않는다.
+- API 실행 스위치는 최초 OFF, 제공사 예산은 최초 $0다. 사용자가 예산과 제공사 잔량을 확인하고 호출을 허용해야 실제 요청을 예약한다. 호출/키 교체/차단 해제는 공동 운영이며 개인별 권한 구분은 없다.
+- 모델 ID와 가격을 등록하고 승인 분기점으로 네 단계의 실제 진단을 예약한다(모델당 4회). PASS 증거를 위조하거나 모의 결과를 실제 검증으로 표시하지 않는다. 같은 idempotency key의 진단 예약은 한 번만 생성한다. 세 모델의 text 네 단계 PASS 후 정식 비교 실험을 만들 수 있다. PDF 입력은 추가 PDF 네 단계 검증을 요구한다.
+- pg_cron/pg_net → HMAC dispatch → execute background task로 자동 처리한다. 브라우저를 닫아도 이어진다. 할 일이 없으면 Edge 호출 없이 SQL에서 종료한다. 전역 제공사별 동시성 1, 원문 선저장, unknown_remote 재전송 금지, 보수적 비용/토큰/Storage admission을 유지한다. 기본 TPM은 100,000이며 PDF/긴 입력은 제공사 실제 한도에 맞게 조정해야 한다.
+- generate/select/usefulness/agreement 각각에 10,000자 이하 추가 지시를 설정한다. 기본 연구 프롬프트와 JSON schema는 유지한다. 추가 지시는 해당 단계에만 붙인다. 기본값은 새 실험에 적용하고 실험 생성 화면에서 덮어쓸 수 있다. 최종 지시는 plan INSERT 때 protocol/condition_hash에 고정하며, 이후 기본값 변경이나 idempotent replay로 바꾸지 않는다.
+- 백업/복원/계정 목록/서버 비밀 읽기 등은 여전히 공개 HTTP로 제공하지 않는다.
+- 키가 없는 현재 상태에서 실제 모델 호출을 성공으로 보고하지 않는다. 테스트용 HTTP 모의 검증과 실제 클라우드 cron/mock 및 실제 제공사 호출을 구분한다.

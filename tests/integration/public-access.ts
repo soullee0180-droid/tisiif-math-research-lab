@@ -5,7 +5,7 @@ const me=await invoke('me');assert.equal(me.status,200);assert.equal(me.headers.
 const key=crypto.randomUUID(),payload={title:'Public shared paper',w:crypto.randomUUID(),a:f.a};const first=await invoke('write/paper_create',payload,key);assert.equal(first.status,200);const paper=(await first.json()).data;assert.deepEqual((await(await invoke('write/paper_create',payload,key)).json()).data,paper);const row=(await f.db.query('select workspace_id,created_by from lab.papers where id=$1',[paper.id])).rows[0]as any;assert.equal(row.workspace_id,f.w);assert.equal(row.created_by,actor);
 for(const path of ['read/settings','read/members','read/backup_rows','read/models'])assert.equal((await invoke(path)).status,403,path);
 for(const path of ['keys','models/smoke','scheduler/install','restore/begin','review/sample','write/member_save','write/workspace_settings','write/budget_save','write/model_save','write/provider_pause','write/backup_create'])assert.equal((await invoke(path,{api_enabled:true,budget_usd:100,role:'admin'})).status,403,path);
-assert.equal((await invoke('write/plan_create',{transport:'api'})).status,403);
+assert.equal((await invoke('write/plan_create',{transport:'api',k:1,repeats:1,revision_ids:[crypto.randomUUID()]})).status,400);
 assert.equal((await f.db.query<{removed:string|null}>("select to_regprocedure('public.lab_identity(uuid,text)') removed")).rows[0].removed,null);
 await f.db.exec('set role anon');await assert.rejects(f.call('lab_public_identity',{}),/permission denied/);await f.db.exec('reset role');
 // Every guest sees the same work, without inventing independent reviewer identities.

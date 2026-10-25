@@ -2,7 +2,7 @@ import{prepareFile,finishFile}from'./provider-files.ts';
 import {assemble,parse,mock,stable,sha,type Json,type Stage,type Provider,anonymize} from '../../../packages/contracts/core.ts';
 import {type Runtime,crypt,rawStore,safeError} from './runtime.ts';
 import {wire,send,extract,classify,cost} from './providers.ts';
-export async function assembled(rt:Runtime,attempt:string){const c=await rt.rpc('lab_context',{attempt});if(!c)throw Error('NOT_FOUND');return{c,request:await assemble(c.run.original_id||c.run.id,c.job.stage,c.job.provider,c.plan.k,c.revision,c.ideas)}}
+export async function assembled(rt:Runtime,attempt:string){const c=await rt.rpc('lab_context',{attempt});if(!c)throw Error('NOT_FOUND');return{c,request:await assemble(c.run.original_id||c.run.id,c.job.stage,c.job.provider,c.plan.k,c.revision,c.ideas,c.plan.protocol.stage_prompts||{})}}
 async function complete(rt:Runtime,attempt:string,c:Json,output:string,metadata:Json={}){const parsed=parse(c.job.stage,output,c.plan.k);const diff=c.job.stage==='generate'?parsed.ideas.map((i:Json)=>({candidate_id:i.candidate_id,title:anonymize(i.title).diff,idea_md:anonymize(i.idea_md).diff})):null;await rt.rpc('lab_attempt',{attempt,command:'complete',p:{parsed,metadata,anonymization_diff:diff}});if(c.plan.protocol.smoke_profile_id)await rt.rpc('lab_smoke_result',{attempt});return parsed}
 export async function execute(rt:Runtime,attempt:string){let sent=false,stored=false;const start=Date.now();const timer=setInterval(()=>{void rt.rpc('lab_heartbeat',{attempt}).catch(()=>{})},15000);
  try{const data=await assembled(rt,attempt);const c:Json=data.c;const request=data.request;if(c.attempt.completed_at)return;
