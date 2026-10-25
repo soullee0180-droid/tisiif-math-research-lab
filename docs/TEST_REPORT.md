@@ -1,3 +1,14 @@
+# 공개 API·최소 입력 3.2 검수
+
+- TypeScript, 단위 33개, SQL, 36-job/72-raw pipeline, shared API integration, production build PASS. 논문 metadata와 reference_location 없이도 fixture를 승인해 전체 실행했다.
+- 공동 API integration: 암호화/원문 미반환, 12개 멱등 capability probes와 18개 API-wire jobs, 단계별 immutable prompt와 anon 직접 RPC 거절 PASS. HTTP는 모의이며 실제 제공사 호출은 0회다.
+- Supabase api v6, dispatch/execute v4 ACTIVE. Vault/cron 설치와 원문 위치 선택 migration 적용. 실제 공개 API에서 서명된 dispatch HTTP 200 accepted. gateway가 줄인 경로와 원래 경로 모두 HMAC 검증하며, 재사용 nonce·변조 본문·다른 함수 경로는 거절한다.
+- Cloudflare Pages commit 315a9aa 배포 check 성공. 실제 공개 사이트에서 PDF만 선택하는 등록 화면, 제목만 표시되는 정보 수정과 접힌 선택 관리 정보, 핵심 4항목의 분기점 편집, API 설정·단계 전환 확인. 기존 논문·분기점·자료 보존.
+- 신규 네 단계 프롬프트 UI의 접근성 label에 안내 문구가 섞여 E2E가 실패했던 문제를 명시적인 textarea aria-label로 수정. 전체 CI **40186527443 PASS**: 실제 PostgreSQL 동시성·7,200 mock jobs·E2E 세 시나리오·390px 모바일·PDF Worker·독립 pypdf 검수까지 통과.
+- 현재 등록 키 0개, API OFF, 제공사 예산 $0. 실제 모델 성공·실제 PDF 제공사 업로드·브라우저 종료 후 실작업 완료는 아직 검증하지 않았다. 실키는 사용자가 사이트의 password 입력란에 직접 등록해야 한다.
+
+아래는 과거 버전의 검수 기록이며, 현재 상태는 위 기록과 DEPLOYMENT_LEDGER.json을 따른다.
+
 # 공개판 3.1 검수
 
 - TypeScript, 단위 32개, 기존 SQL와 36-job pipeline 통과.
