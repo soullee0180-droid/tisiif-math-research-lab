@@ -12,6 +12,7 @@ export type Provider=typeof providers[number];
 export type Stage='generate'|'select'|'usefulness'|'agreement';
 export type Json=Record<string,any>;
 export const enc=new TextEncoder();
+export const MAX_PREPARED_PDF_BYTES=32*1024*1024;
 export const stable=(v:any):string=>v===null||typeof v!=='object'?JSON.stringify(v):Array.isArray(v)?'['+v.map(stable).join(',')+']':'{'+Object.keys(v).sort().filter(k=>v[k]!==undefined).map(k=>JSON.stringify(k)+':'+stable(v[k])).join(',')+'}';
 export async function sha(v:string|Uint8Array|ArrayBuffer){const bytes=typeof v==='string'?enc.encode(v):new Uint8Array(v as ArrayBuffer);return [...(globalThis.crypto?.subtle?new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)):sha256(bytes))].map(b=>b.toString(16).padStart(2,'0')).join('')}
 export function integer(v:any,min=1,max=10){if(!Number.isInteger(v)||v<min||v>max)throw Error('INTEGER_RANGE');return v as number}

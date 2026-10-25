@@ -119,7 +119,7 @@
     "batch_total_bytes": 209715200,
     "upload_parallel": 3,
     "pdf_process_parallel": 1,
-    "default_prepared_pdf_bytes": 8388608,
+    "default_prepared_pdf_bytes": 33554432,
     "default_prepared_pdf_pages": 30,
     "provider_concurrency": 1,
     "provider_total_concurrency": 3,
