@@ -8,7 +8,7 @@ const writes=new Set(['paper_create','paper_update','checkpoint_create','revisio
 export async function handler(req:Request,rt:Runtime){const id=crypto.randomUUID();const cors={'Content-Type':'application/json','x-request-id':id,'Cache-Control':'no-store','Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'apikey,content-type,idempotency-key','Access-Control-Allow-Methods':'GET,POST,OPTIONS'};
  try{
   if(req.method==='OPTIONS')return new Response(null,{status:204,headers:cors});
-  const u=new URL(req.url),path=u.pathname.replace(/^\/functions\/v1\/api(?=\/|$)/,''),query=Object.fromEntries(u.searchParams);
+  const u=new URL(req.url),path=u.pathname.replace(/^(?:\/functions\/v1)?\/api(?=\/|$)/,''),query=Object.fromEntries(u.searchParams);
   if(req.method==='GET'&&path==='/v1/health')return Response.json({ok:true,version:'3.2.0',access:'public',real_api_default:false},{headers:cors});
   if(!['GET','POST'].includes(req.method))throw Error('METHOD_NOT_ALLOWED');
   if(!await rt.rpc('lab_public_request',{is_write:req.method==='POST'}))throw Error('PUBLIC_RATE_LIMIT');
