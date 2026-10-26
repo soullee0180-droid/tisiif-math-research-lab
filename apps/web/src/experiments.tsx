@@ -11,8 +11,8 @@ function PlanForm({onClose}:{onClose:()=>void}){
  return <Modal title="실험 계획 만들기" onClose={onClose}>
   <Field label="계획 이름"><input value={name} onChange={e=>setName(e.target.value)}/></Field>
   <div className="form-grid">
-   <Field label="실행 경로"><select value={transport} onChange={e=>{setTransport(e.target.value);setCohort(e.target.value==='mock'?'fixture':'pilot')}}><option value="api">API 자동 실행 · 공동 키 사용</option><option value="manual_web">수동 웹 채팅 · 저장 결과 직접 입력</option><option value="mock">모의 · 합성 fixture</option></select></Field>
-   <Field label="코호트"><select disabled={transport==='mock'} value={cohort} onChange={e=>setCohort(e.target.value)}>{transport==='mock'?<option value="fixture">fixture</option>:<><option value="pilot">예비</option><option value="main">본실험</option></>}</select></Field>
+   <Field label="실행 경로"><select aria-label="실행 경로" value={transport} onChange={e=>{setTransport(e.target.value);setCohort(e.target.value==='mock'?'fixture':'pilot')}}><option value="api">API 자동 실행 · 공동 키 사용</option><option value="manual_web">수동 웹 채팅 · 저장 결과 직접 입력</option><option value="mock">모의 · 합성 fixture</option></select></Field>
+   <Field label="코호트"><select aria-label="코호트" disabled={transport==='mock'} value={cohort} onChange={e=>setCohort(e.target.value)}>{transport==='mock'?<option value="fixture">fixture</option>:<><option value="pilot">예비</option><option value="main">본실험</option></>}</select></Field>
    <Field label="후보 수 K"><input type="number" min={1} max={10} value={k} onChange={e=>setK(+e.target.value)}/></Field>
    <Field label="독립 반복 R"><input type="number" min={1} max={10} value={repeats} onChange={e=>setRepeats(+e.target.value)}/></Field>
   </div>
@@ -20,7 +20,7 @@ function PlanForm({onClose}:{onClose:()=>void}){
    <p className="muted">체크한 제공사만 실행합니다. 두 모델 이상이면 서로의 출력을 채점하고, 자기 출력은 채점하지 않습니다.</p>
    {providers.map(p=><div className="model-choice" key={p}>
     <label className="check"><input type="checkbox" checked={selected.includes(p)} onChange={e=>setSelected(providers.filter(x=>x===p?e.target.checked:selected.includes(x)))}/>{providerNames[p]} 포함</label>
-    {transport==='api'&&selected.includes(p)&&<Field label={providerNames[p]+' 모델'}><select value={modelIds[p]||''} onChange={e=>setModelIds({...modelIds,[p]:e.target.value})}><option value="">사용할 검증 모델 선택</option>{config?.models.filter((m:Json)=>m.provider===p&&m.enabled).map((m:Json)=><option key={m.id} value={m.id}>{m.model_id}</option>)}</select>{!config?.models.some((m:Json)=>m.provider===p&&m.enabled)&&<small><a href="/api-settings">API 설정에서 키·모델을 등록하고 검증하세요.</a></small>}</Field>}
+    {transport==='api'&&selected.includes(p)&&<Field label={providerNames[p]+' 모델'}><select aria-label={providerNames[p]+' 모델'} value={modelIds[p]||''} onChange={e=>setModelIds({...modelIds,[p]:e.target.value})}><option value="">사용할 검증 모델 선택</option>{config?.models.filter((m:Json)=>m.provider===p&&m.enabled).map((m:Json)=><option key={m.id} value={m.id}>{m.model_id}</option>)}</select>{!config?.models.some((m:Json)=>m.provider===p&&m.enabled)&&<small><a href="/api-settings">API 설정에서 키·모델을 등록하고 검증하세요.</a></small>}</Field>}
    </div>)}
    {n===1&&<p className="muted">모델 하나: 생성·선택만 실행합니다. 상호 채점과 관련 지표는 없습니다.</p>}
    {n===0&&<p className="text-error">실행할 모델을 하나 이상 선택하세요.</p>}
