@@ -3,10 +3,10 @@
   "version": "3.2.0",
   "source_commit": "local-source-checkpoint",
   "node": "v24.22.1",
-  "created_at": "2026-10-25T01:13:07.364Z",
+  "created_at": "2026-10-26T12:07:07.147Z",
   "package_lock_sha256": "1e5f8a57d7701ff6ba02da5a14f52a50bcfd7eb2d9f68c5c96deb842c5a19b66",
   "deno_lock_sha256": "a3d5c25d0ace946651cc33381d1b5ee86aebbc6115dcefb85f053e5f7564ae2c",
-  "protocol_sha256": "5d2ce21ece6af1c70f8552a8be78f37e1f79c45bf22793580808ea50c8737b97",
+  "protocol_sha256": "699d5dda4bd9af2e0d2355332566c20b403b883a4791b34208840410681cde58",
   "migrations": [
     {
       "file": "20261024190439_free_schema.sql",
@@ -55,6 +55,18 @@
     {
       "file": "20261025010509_shared_api_scheduler_secrets.sql",
       "sha256": "cb9f755466855d1de68b2c270c3c95d76ecafa6fe16f905a08abeea2e07aa496"
+    },
+    {
+      "file": "20261025104918_minimal_paper_input.sql",
+      "sha256": "86d103f46fbfdfadbc3d9cefb06ca7365eeebc107b61dd6cb63715f5619c1186"
+    },
+    {
+      "file": "20261025123000_prepared_pdf_32mib.sql",
+      "sha256": "85ad35c7ff154688f3f431dfa665c2adb90c3f598e1afe0b114ad3b85759a0ee"
+    },
+    {
+      "file": "20261026115731_selected_models_identity.sql",
+      "sha256": "9fb7e6664d11f2c795ebcb41d4af00917ced4da0c8445a264c659f48787b9b87"
     }
   ],
   "constraints": {

@@ -1,6 +1,6 @@
 {
-  "protocol_id": "tisiif-math-free-v3",
-  "version": 3,
+  "protocol_id": "tisiif-math-selected-v4",
+  "version": 4,
   "scope": "next-idea generation and selection in reconstructed mathematical research contexts",
   "ui_language": "ko-KR",
   "prompt_language": "en",
@@ -13,7 +13,7 @@
     "openai",
     "anthropic"
   ],
-  "judges": "the other two providers; no self-judging",
+  "judges": "all other selected providers; no self-judging",
   "fresh_request_each_stage": true,
   "external_tools": [],
   "web_search": false,
@@ -21,10 +21,8 @@
   "stages": [
     "generate",
     "select",
-    "usefulness:judge1",
-    "usefulness:judge2",
-    "agreement:judge1",
-    "agreement:judge2"
+    "usefulness:each-other-selected-provider",
+    "agreement:each-other-selected-provider"
   ],
   "dependencies": {
     "generate": [],
@@ -82,21 +80,22 @@
     "core",
     "undetermined"
   ],
-  "candidate_usefulness": "mean of both judges only when both numeric",
-  "strict_core_match": "both judges label core",
+  "candidate_usefulness": "mean of all expected peer judges only when all numeric; no peers means null",
+  "strict_core_match": "all expected peer judges label core; no peers means null",
   "metric_eligibility": {
-    "selected_usefulness": "selection and its two numeric usefulness ratings present",
-    "best_usefulness": "all K candidates have two numeric usefulness ratings",
+    "selected_usefulness": "selection and every expected peer numeric usefulness rating present",
+    "best_usefulness": "all K candidates have every expected peer numeric rating",
     "selection_regret": "best_usefulness and selected_usefulness eligible",
-    "any_core_match": "all K have two determinate agreement labels",
-    "selected_core_match": "selection has two determinate agreement labels"
+    "any_core_match": "all K have every expected peer determinate agreement label",
+    "selected_core_match": "selection has every expected peer determinate agreement label",
+    "no_peer_judges": "all peer-derived metrics null"
   },
   "aggregation": [
     "repeat mean within checkpoint",
     "checkpoint mean within paper",
     "equal-weight paper mean"
   ],
-  "primary_comparison": "same checkpoint revision and repeat index with all three generators eligible for that metric",
+  "primary_comparison": "same checkpoint revision and repeat index with all selected generators eligible for that metric",
   "cohort_exclusions": [
     "fixture",
     "diagnostic",
@@ -137,7 +136,7 @@
     ]
   },
   "version_change": "new immutable protocol and new plan; never rewrite an executed plan",
-  "scientific_rules_version": 1,
+  "scientific_rules_version": 2,
   "execution_profile": "supabase-free-edge-v1",
   "free_tier": {
     "infra_budget_usd_month": 0,
@@ -156,5 +155,6 @@
     "long_sync_inference": "unsupported unless capability validated within 100 second request budget",
     "remote_unknown_auto_retry": false,
     "automatic_external_backups": false
-  }
+  },
+  "reveal_generator_identity": false
 }

@@ -13,5 +13,26 @@ const paper=(await f.call('lab_read',{w:f.w,a:f.a,kind:'revision',args:{id:revis
 const key=crypto.randomUUID(),payload={name:'Shared real-wire synthetic',k:1,repeats:1,cohort:'pilot',transport:'api',revision_ids:[revision],model_ids:models,stage_prompts:{select:'PLAN_SELECT_OVERRIDE'}};const plan=await invoke('write/plan_create',payload,key);await save('prompts',{stage_prompts:{generate:'LATER_DEFAULT'}});assert.deepEqual(await invoke('write/plan_create',payload,key),plan);await invoke('write/plan_control',{id:plan.id,status:'running'});
 for(let round=0;round<12;round++)for(const provider of providers){const c=await f.call('lab_claim',{provider_name:provider});if(c)await execute(rt,c.attempt_id)}assert.equal(requests,30);
 const results=await invoke('read/plan?id='+plan.id);assert.equal(results.status,'complete');assert.equal(results.protocol.stage_prompts.generate,'GEN_EXTRA_ONLY');assert.equal(results.protocol.stage_prompts.select,'PLAN_SELECT_OVERRIDE');for(const run of results.runs)for(const job of run.jobs){const prompt=job.attempts[0].request_snapshot.prompt;assert.ok(prompt.includes(({generate:'GEN_EXTRA_ONLY',select:'PLAN_SELECT_OVERRIDE',usefulness:'USE_EXTRA_ONLY',agreement:'AGR_EXTRA_ONLY'} as Record<string,string>)[job.stage]as string));assert.ok(!prompt.includes('LATER_DEFAULT'));if(job.stage!=='agreement')assert.ok(!prompt.includes('SECRET_CANARY'))}
+
+// Claude has no usable budget: selected Google/OpenAI plans must still run in both identity conditions.
+await save('budget_save',{provider:'anthropic',enabled:false,budget_usd:0,org_verified:true});
+for(const reveal of [false,true]){
+ const pair=await invoke('write/plan_create',{...payload,name:'Two providers '+reveal,selected_providers:['openai','google'],model_ids:{google:models.google,openai:models.openai},reveal_generator_identity:reveal});
+ await invoke('write/plan_control',{id:pair.id,status:'running'});const before:number=requests;
+ for(let round=0;round<12;round++)for(const provider of providers){const c=await f.call('lab_claim',{provider_name:provider});if(c){assert.notEqual(provider,'anthropic');await execute(rt,c.attempt_id)}}
+ assert.equal(requests-before,8);const details=await invoke('read/plan?id='+pair.id);
+ assert.equal(details.status,'complete');assert.equal(details.runs.length,2);assert.deepEqual(details.protocol.selected_providers,['google','openai']);
+ for(const run of details.runs){assert.equal(run.jobs.length,4);for(const job of run.jobs){
+  if(job.stage==='usefulness'||job.stage==='agreement'){assert.notEqual(job.provider,run.generator);const snapshot=job.attempts[0].request_snapshot;const label=run.generator==='google'?'Google Gemini':'OpenAI GPT';assert.equal(snapshot.prompt.includes('AI that generated the preceding output: '+label+'.'),reveal);assert.equal(snapshot.dto.generator_identity,reveal?label:undefined)}
+  else assert.ok(!job.attempts[0].request_snapshot.prompt.includes('AI that generated the preceding output:'));
+ }}
+ const result=await invoke('read/results?plan_ids_json='+encodeURIComponent(JSON.stringify([pair.id])));
+ assert.ok(result.runs.every((r:any)=>r.selected_providers.length===2&&r.reveal_generator_identity===reveal));
+}
+const one=await invoke('write/plan_create',{...payload,selected_providers:['google'],model_ids:{google:models.google}});await invoke('write/plan_control',{id:one.id,status:'running'});const beforeOne:number=requests;
+for(let i=0;i<3;i++){const c=await f.call('lab_claim',{provider_name:'google'});if(c)await execute(rt,c.attempt_id)}assert.equal(requests-beforeOne,2);assert.equal((await invoke('read/plan?id='+one.id)).status,'complete');
+for(const selected of [[],['google','google'],['other'],null,'google'])await assert.rejects(f.write('plan_create',{...payload,selected_providers:selected}),/PROVIDER_SELECTION_INVALID/);
+await assert.rejects(f.write('plan_create',{...payload,selected_providers:['google'],reveal_generator_identity:'true'}),/IDENTITY_OPTION_INVALID/);
+console.log('PASS selected two-provider API-wire execution without Claude, opt-in labels in both grading stages, one-provider completion, invalid selections rejected');
 await f.db.exec('set role anon');await assert.rejects(f.call('lab_shared_api',{w:f.w,a:f.a,command:'read'}),/permission denied/);await f.db.exec('reset role');
 console.log('PASS shared key encryption/no readback, 12 idempotent capability probes + 18 complete API-wire jobs (HTTP mocked), per-stage immutable overrides, fresh defaults excluded, direct RPC denied; real external calls 0');await f.db.close();
