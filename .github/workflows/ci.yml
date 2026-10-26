@@ -1,136 +1,56 @@
-name: Verify research application
+name: Verify free research application
 on:
   push:
-    branches: [main]
+    branches: [main, free/v3-from-scratch]
   pull_request:
-permissions:
-  contents: write
 jobs:
   verify:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     services:
       postgres:
         image: postgres:17
         env:
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: tisiif_test
-        ports: ["5432:5432"]
+          POSTGRES_PASSWORD: isolated-ci-only
         options: >-
-          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
-    env:
-      APP_ENV: test
-      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/tisiif_test
-      LOCAL_STORAGE_DIR: ${{ github.workspace }}/.local/storage
-      PYTHONPATH: src
-      TEST_AUTH_SECRET: local-ci-fixtures-only
-      SECRETS_MASTER_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: {node-version: "24"}
-      - uses: astral-sh/setup-uv@v6
-        with: {python-version: "3.12"}
-      - name: Resolve and lock Python dependencies
-        run: |
-          if [ ! -f uv.lock ]; then uv lock; fi
-          uv sync --frozen
-      - name: Resolve and lock frontend dependencies
-        working-directory: apps/web
-        run: |
-          if [ ! -f package-lock.json ]; then
-            npm install --save-exact react@19 react-dom@19 react-router-dom@7 @tanstack/react-query@5 @supabase/supabase-js@2 tus-js-client@4 katex@0.16 react-markdown@10 remark-math@6 rehype-katex@7 @fontsource-variable/noto-sans-kr@5
-            npm install --save-dev --save-exact @types/react@19 @types/react-dom@19 typescript@5 vite@7 @vitejs/plugin-react@5 vitest@4 openapi-typescript@7 @playwright/test@1
-          else
-            npm ci
-          fi
-      - name: Generate CLI-owned migration filenames
-        run: |
-          if [ ! -f supabase/config.toml ]; then npx --yes supabase@2.122.0 init; fi
-          if ! ls supabase/migrations/*_initial_research_contract.sql >/dev/null 2>&1; then
-            npx --yes supabase@2.122.0 migration new initial_research_contract
-            cp contracts/001_schema.sql supabase/migrations/*_initial_research_contract.sql
-          fi
-          if ! ls supabase/migrations/*_render_runtime.sql >/dev/null 2>&1; then
-            npx --yes supabase@2.122.0 migration new render_runtime
-            cp scripts/runtime-schema.sql supabase/migrations/*_render_runtime.sql
-          fi
-      - name: Generate usability migration
-        run: |
-          if ! ls supabase/migrations/*_checkpoint_title_and_archive_parts.sql >/dev/null 2>&1; then
-            npx --yes supabase@2.122.0 migration new checkpoint_title_and_archive_parts
-            cp scripts/usability-schema.sql supabase/migrations/*_checkpoint_title_and_archive_parts.sql
-          fi
-      - name: Persist initial reproducible locks
-        if: github.event_name == 'push'
-        run: |
-          git config user.name "TISIIF dependency lock"
-          git config user.email "actions@users.noreply.github.com"
-          git add uv.lock apps/web/package.json apps/web/package-lock.json supabase
-          if ! git diff --cached --quiet; then
-            git commit -m "build: lock verified runtime dependencies"
-            git push
-          fi
-      - name: Verify Render Blueprint structure
-        run: uv run python scripts/verify_blueprint.py
-      - name: Verify specification contracts
-        run: uv run python scripts/check_spec.py
-      - name: Python syntax and application tests
-        run: |
-          uv run python -m compileall -q src
-          if [ -d tests/unit ]; then uv run pytest -q tests --junitxml=test-results/python.xml; fi
-      - name: Generate frontend API types
-        run: |
-          if [ -f src/lab/api/app.py ]; then uv run python scripts/export_openapi.py; cd apps/web; npm run generate-types; fi
-      - name: Frontend tests and production build
-        working-directory: apps/web
-        run: |
-          if [ -f src/main.tsx ]; then npm run test -- --reporter=json --outputFile=../../test-results/frontend.json && npm run build; fi
-      - name: Build and verify the production Docker image
-        run: |
-          python scripts/resolve_images.py
-          docker build -t tisiif-lab:verified .
-          docker run --rm --entrypoint python tisiif-lab:verified -c "from lab.api.app import app;from lab.pdf.prepare import inspect_pdf;print(app.version)"
-          mkdir -p verification-artifacts
-          cp build-manifest.json Dockerfile verification-artifacts/
-      - name: Prepare synthetic browser workspace
-        run: uv run python scripts/seed_browser_test.py
-      - name: Browser verification
-        working-directory: apps/web
-        run: |
-          if [ -f ../../tests/e2e/app.spec.ts ]; then
-            npx playwright install --with-deps chromium
-            npx playwright test --config ../../tests/e2e/playwright.config.ts
-          fi
-      - name: Publish verification evidence
-        run: uv run python scripts/build_test_report.py
-      - name: Persist verification report
-        if: github.event_name == 'push'
-        run: |
-          git config user.name "TISIIF verification"
-          git config user.email "actions@users.noreply.github.com"
-          git add docs/TEST_REPORT.md
-          if ! git diff --cached --quiet; then
-            git commit -m "docs: record verified research build"
-            git push
-          fi
-      - name: Capture dependency and test artifacts
-        if: always()
-        run: |
-          mkdir -p verification-artifacts
-          cp -f uv.lock verification-artifacts/ 2>/dev/null || true
-          cp -f apps/web/package.json apps/web/package-lock.json verification-artifacts/ 2>/dev/null || true
-          tar -czf verification-artifacts/python-site-packages.tar.gz -C .venv/lib/python3.12 site-packages
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run check
+      - run: npm test
+      - run: npm run test:sql
+      - run: node --import tsx tests/integration/pipeline.ts
+      - run: node --import tsx tests/integration/admission.ts
+      - run: node --import tsx tests/integration/public-access.ts
+      - run: node --import tsx tests/integration/shared-api.ts
+      - run: node --import tsx tests/integration/provider-files.ts
+      - run: python tests/integration/postgres_concurrency.py
+        env:
+          TEST_PG_CONTAINER: ${{ job.services.postgres.id }}
+      - run: npm run test:stress
+      - run: npm run build
+      - run: npm run bundle:edge
+      - run: npx deno check --frozen --config supabase/functions/deno.json supabase/functions/api/index.ts
+      - run: npx playwright install --with-deps chromium
+      - run: pip install pypdf==6.1.3 reportlab==4.4.5
+      - run: python tests/fixtures/make_pdf_canary.py
+      - run: npx playwright test
+        env:
+          VITE_SUPABASE_URL: http://127.0.0.1:4174
+          VITE_SUPABASE_PUBLISHABLE_KEY: fixture-ci-publishable
+      - run: python tests/fixtures/check_prepared_pdf.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: verification-and-dependencies
+          name: free-v3-verification
           path: |
-            verification-artifacts
-            test-results/*.xml
-            docs/TEST_REPORT.md
-            docs/openapi.json
-            apps/web/src/api/generated.d.ts
-            apps/web/dist
-            test-results
-            playwright-report
-
+            test-results/
+            build-manifest.json

@@ -1,0 +1,1 @@
+import{cp,mkdir}from'node:fs/promises';const root='apps/web/public/vendor/pdfjs';await mkdir(root,{recursive:true});for(const part of['standard_fonts','cmaps','wasm'])await cp('node_modules/pdfjs-dist/'+part,root+'/'+part,{recursive:true});await cp('node_modules/pdfjs-dist/LICENSE',root+'/LICENSE');

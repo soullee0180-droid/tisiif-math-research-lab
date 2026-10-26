@@ -1,17 +1,12 @@
-.venv/
 node_modules/
-__pycache__/
-.pytest_cache/
-.ruff_cache/
-*.pyc
-.env
-.env.*
+dist/
+.edge-bundle/
+.env*
 !.env.example
-*.log
-.local/
-.test-artifacts/
-verification-artifacts/
-apps/web/dist/
-playwright-report/
+apps/web/public/vendor/
 test-results/
+playwright-report/
+.supabase/
 
+apps/web/__pdf.html
+.cloud-before.json

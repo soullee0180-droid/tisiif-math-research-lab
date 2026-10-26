@@ -1,22 +1,10 @@
-# 구현 결정과 명세 대응
+# 구현 결정
 
-- 마스터 프롬프트, SQL·JSON 계약, 프롬프트, 합성 지표 fixture를 정본으로 보존했습니다. 폐기한 이전 앱 구현을 복구하거나 재사용하지 않았습니다.
-- React 19·TypeScript·Vite 7, Python 3.12·FastAPI·Pydantic 2·psycopg 3, Supabase, Render 구조를 사용합니다. 설치 가능한 실제 버전을 CI에서 고정했으며 잠금 파일이 저장소에 있습니다.
-- Render의 현재 plan ID는 웹 `0.5c-512mb`, worker `1c-2g`입니다. worker 최소 2GiB를 낮추지 않았습니다. 결제·견적 확인 전 유료 서비스를 만들지 않습니다. 최초 안정화와 동일 SHA 순차 배포를 위해 자동 배포는 `off`로 준비했습니다.
-- 20GB worker 디스크는 최초 견적용 후보입니다. 실제 데이터가 커지면 최근 백업 3개 + 새 백업 + 임시 작업 공간을 기준으로 다시 계산합니다. 디스크만으로 원본을 보존하지 않습니다.
-- Redis 없이 PostgreSQL SKIP LOCKED·제공사 전역 잠금·quota 예약으로 배정합니다. worker thread는 총 4개로 제한하며 PDF/내보내기 보조 작업은 전역 1개입니다. 제공사별 상한보다 낮은 총 동시성은 최소 메모리 인스턴스의 PDF/base64 메모리를 제한하기 위한 선택입니다.
-- 공개 입력 hash는 공개 내용·목표·장애·입력 방식·prepared PDF SHA256으로 계산합니다. 내부 asset UUID는 포함하지 않아 동일 파일을 새 공간에 복원해도 내용 hash가 유지됩니다. 경로와 UUID는 별도 snapshot에 남습니다.
-- 후보 표시 순열은 run의 보존된 `display_seed`와 단계·평가자로 계산합니다. 복원 시 원래 seed를 유지하고 데이터 ID만 새로 배정합니다.
-- 실제 요청과 응답은 짧은 DB 트랜잭션 밖에서 전송·저장합니다. 응답이 보존된 시도는 재파싱하고, 원격 처리 여부가 불분명한 요청은 자동 재전송하지 않습니다.
-- provider file cache 테이블은 준비했지만 현재 어댑터는 PDF inline 경로를 사용합니다. 원격 파일 캐시를 사용한다고 표시하지 않습니다.
-- 모델 목록 조회는 모델 사용 가능성의 충분한 증거가 아닙니다. 단일 합성 JSON/PDF 연결 검사도 전체 연구 경로 검수와 구분합니다. 실제 키·권한·비용 승인 없이 검사를 실행하지 않습니다.
-- manual은 웹 서비스에서 사람이 응답을 가져오는 별도 경로입니다. 원문과 수동 JSON 대응을 함께 저장하고 `human_corrected`를 기록하며 기본 API 비교에서 제외합니다.
-- 사람 검토는 이 검토 화면의 반환 데이터에 대해 블라인드입니다. 다른 권한 있는 화면에서 먼저 자료를 본 가능성까지 제거했다고 주장하지 않습니다. 최초 판단과 수정본을 별도 보존하고, 신뢰성 표는 층별 최초 판단·실제 n을 표시합니다.
-- backup은 연구 행과 실제 원본·prepared·요청/응답 파일을 함께 담습니다. 복원은 새 비활성 공간에 수행하며 계획을 일시정지합니다. 재생성 가능한 export/backup 작업은 이력을 남기고 취소 상태로 복원합니다. API 키와 서버 비밀값은 연구 export/backup에 포함하지 않으므로 별도 보관·재입력이 필요합니다.
-- 40MiB를 넘는 archive는 bounded binary part와 전체/부분 SHA256 manifest로 저장합니다. 분할 파일은 모두 내려받아야 합니다. 버킷의 선언된 한도와 프로젝트 전체 한도는 다르므로 실제 계정 설정을 배포 시 확인합니다.
-- `lab_private`에 RLS를 켜고 브라우저 정책을 주지 않는 것은 의도한 전체 차단입니다. Supabase의 해당 INFO 안내를 해소하려고 공개 정책을 추가하지 않습니다.
-
-- Supabase의 modern secret key는 `apikey` 헤더에만 넣습니다. JWT 형식인 이전 service-role 키에만 Bearer 헤더를 병행합니다. 신규 secret을 JWT로 파싱하여 거부하는 문제를 방지합니다.
-- 분석 hash에는 현재 지표와 accepted attempt ID를 포함합니다. Excel의 공통/가용 비교 옵션을 화면과 동일하게 적용하고, 요청 이후 응답이 추가되어 snapshot이 달라지면 원래 분석과 같은 파일이라고 표시하지 않고 다시 확인하도록 합니다.
-
-- 다중 실행기의 lease·의존성 복구는 짧은 workspace advisory 잠금으로 중복 bulk UPDATE의 교착을 막습니다. 원격 응답을 읽은 후에도 job 상태·lease를 다시 잠그고 확인해, 늦은 복구 조회가 이미 완료된 작업을 덮어쓰지 않게 합니다.
+- 무료판 런타임을 전부 새로 작성했다. 이전 소스는 Git 이력에만 남으며 신규 실행 경로에 사용하지 않는다. 연구 프롬프트·schema·fixture는 사용자 첨부 원본에서 추출했다.
+- 작업 환경 초기화로 미저장 파일이 사라졌고, master 원본을 복구해 재작성했다. 이후 GitHub 무료판 브랜치에 중간 소스를 지속 저장한다.
+- `lab`/`lab_private`는 미노출 private 업무 schema다. fixed RPC만 service_role에 허용하고, 공개 Edge action allowlist와 DB actor/workspace 검사로 확인한다. 직접 anon/authenticated 업무 접근은 없다.
+- 승인·결과·원문·최초 판단 불변성을 DB가 지킨다. 제공사별 전역 runtime을 먼저 잠그고 예산·job 순서로 claim한다. fairness timestamp를 별도 private 테이블에 두어 7,200개 검수에서 발견한 상관 서브쿼리 병목을 제거했다.
+- 무료 Edge에서 대형 PDF/Excel/ZIP을 만들지 않는다. PDF.js/pdf-lib와 export Worker·IndexedDB 파트 다운로드를 사용한다.
+- 백업은 실제 파일을 포함하며 한 번에 전체 Storage를 메모리에 중복 적재하지 않는다. 파일은 8MiB chunk, ZIP은 약 16MiB 파트로 나눈다. 로컬 검수 뒤 새 비활성 공간에만 복원한다.
+- 공식 세 제공사 file handle 업로드·재사용·만료 재검수와 별도 준비 단위를 구현하고 모의 HTTP로 검수했다. 실제 제공사 PDF 검수 전에는 capability gate로 차단한다. 이를 텍스트 OCR이나 다른 모델로 조용히 대체하지 않는다. 수동 경로에는 승인 공개 PDF를 전달할 수 있다.
+- 최신 공개판 지시가 OAuth·3계정 요건을 폐기한다. 공용 actor를 사용하며 로그인 SDK·초대·운영 설정 UI를 제거한다. 원본 자료도 공동 공개한다. 실제 클라우드 TUS·cron과 모델 검수는 mock 검사와 구분한다.

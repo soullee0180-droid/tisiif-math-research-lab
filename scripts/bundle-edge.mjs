@@ -1,0 +1,1 @@
+import {build}from'esbuild';import{mkdir}from'node:fs/promises';await mkdir('.edge-bundle',{recursive:true});for(const name of['api','dispatch','execute'])await build({entryPoints:[`supabase/functions/${name}/index.ts`],outfile:`.edge-bundle/${name}.js`,bundle:true,platform:'neutral',target:'es2023',format:'esm'});

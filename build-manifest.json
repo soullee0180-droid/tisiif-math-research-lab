@@ -1,15 +1,108 @@
 {
-  "schema_version": 1,
-  "source_commit": null,
-  "base_images": {
-    "node:24-bookworm-slim": "node@sha256:55fb5f5a527ea2c5c4a95f963e48ef90aa38c7b346054fdc8ee9957a2b55d205",
-    "python:3.12-slim-bookworm": "python@sha256:6a0e06f5ba0b373d051aabd3fffb9b873f27f9a2a3a14bcbe37dee6f0e3bbc70",
-    "ghcr.io/astral-sh/uv:0.13.4": "ghcr.io/astral-sh/uv@sha256:9f130421e930bfbdc563c00740466603f8723158e90297d07957c2294640262b"
+  "app": "TISIIF Math Research Lab",
+  "version": "3.2.0",
+  "source_commit": "local-source-checkpoint",
+  "node": "v24.22.1",
+  "created_at": "2026-10-26T12:07:07.147Z",
+  "package_lock_sha256": "1e5f8a57d7701ff6ba02da5a14f52a50bcfd7eb2d9f68c5c96deb842c5a19b66",
+  "deno_lock_sha256": "a3d5c25d0ace946651cc33381d1b5ee86aebbc6115dcefb85f053e5f7564ae2c",
+  "protocol_sha256": "699d5dda4bd9af2e0d2355332566c20b403b883a4791b34208840410681cde58",
+  "migrations": [
+    {
+      "file": "20261024190439_free_schema.sql",
+      "sha256": "90e5cab76284c6087915707d91d89b4908bbc140d719f53f7fd6eb6402b6d5d8"
+    },
+    {
+      "file": "20261024190638_free_api.sql",
+      "sha256": "c2dd9cfd1e35a5c59d61385187776db2ec0aca743df06034af0c398be1bcba26"
+    },
+    {
+      "file": "20261024190816_free_queue.sql",
+      "sha256": "75352ec82dee5c59a698709ec3f2dbbf2440b8d274e4fc71dc421b809b4d5019"
+    },
+    {
+      "file": "20261024190930_free_research_tools.sql",
+      "sha256": "68d690e622e48de6541b9bd46e1f6761674a5129fb691bbe9cba699dd0eecd2d"
+    },
+    {
+      "file": "20261024191354_free_scheduler.sql",
+      "sha256": "ca91b41713a0bccb3289313ca956bc5e8110cea6e9dbea2737246aa6387da718"
+    },
+    {
+      "file": "20261024193635_free_admission.sql",
+      "sha256": "e854c14123f3329d1dc22f4a673aa0ecbb21c6b85a5bc57700a2d9e8a90243be"
+    },
+    {
+      "file": "20261024193753_free_capability_probe.sql",
+      "sha256": "21aad7d28ddf4246e8bb972f207f7254a703d807b11e5bb5f2c4e994bb10c6bc"
+    },
+    {
+      "file": "20261024195427_free_provider_files.sql",
+      "sha256": "86202a8db3e8e8e5af1a8e22d66643c9d79a578feb73a43d37b6292b220acb7f"
+    },
+    {
+      "file": "20261025003125_public_access.sql",
+      "sha256": "dce8b6d7c3a494d0827038c5e3056d89981c64b5770e907e728d091d9d96f156"
+    },
+    {
+      "file": "20261025004128_safe_usage_update.sql",
+      "sha256": "d1e55ca3cc1926d94f2e8f1a58af49e738e035d3478397b751d9b2e352f6ad7e"
+    },
+    {
+      "file": "20261025010506_shared_api.sql",
+      "sha256": "d410d31bb80dc6ca1f8b43d527625d4aad15d850816f0261249c2602084246bf"
+    },
+    {
+      "file": "20261025010509_shared_api_scheduler_secrets.sql",
+      "sha256": "cb9f755466855d1de68b2c270c3c95d76ecafa6fe16f905a08abeea2e07aa496"
+    },
+    {
+      "file": "20261025104918_minimal_paper_input.sql",
+      "sha256": "86d103f46fbfdfadbc3d9cefb06ca7365eeebc107b61dd6cb63715f5619c1186"
+    },
+    {
+      "file": "20261025123000_prepared_pdf_32mib.sql",
+      "sha256": "85ad35c7ff154688f3f431dfa665c2adb90c3f598e1afe0b114ad3b85759a0ee"
+    },
+    {
+      "file": "20261026115731_selected_models_identity.sql",
+      "sha256": "9fb7e6664d11f2c795ebcb41d4af00917ced4da0c8445a264c659f48787b9b87"
+    }
+  ],
+  "constraints": {
+    "infrastructure_monthly_budget_usd": 0,
+    "real_api_enabled_default": false,
+    "real_api_budget_usd_default": 0
   },
-  "lockfiles": {
-    "uv.lock": "54575abf896e52ce00350c006fa41ad1ccada66be9c2a38641d54817d6d5895c",
-    "apps/web/package-lock.json": "6c1e48124a7957f9779dd2c22ece59b3fbae3bbd96a48e06bfc79ae02e857905"
+  "dependencies": {
+    "@fontsource/noto-sans-kr": "5.3.1",
+    "@noble/hashes": "1.8.0",
+    "exceljs": "4.4.0",
+    "fflate": "0.8.3",
+    "katex": "0.19.1",
+    "lucide-react": "1.61.0",
+    "pdf-lib": "1.17.1",
+    "pdfjs-dist": "6.4.299",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "react-markdown": "10.1.0",
+    "rehype-katex": "7.0.1",
+    "remark-gfm": "4.0.1",
+    "remark-math": "6.0.0",
+    "tus-js-client": "4.3.1"
   },
-  "live_ai_requests": 0,
-  "source_commit_resolution": "CI artifact records GITHUB_SHA; production sets BUILD_SHA"
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.11",
+    "@playwright/test": "1.64.1",
+    "@types/node": "26.6.5",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "deno": "2.9.6",
+    "esbuild": "0.28.2",
+    "supabase": "2.122.0",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3",
+    "vite": "7.3.7",
+    "vitest": "4.1.12"
+  }
 }

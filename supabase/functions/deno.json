@@ -1,0 +1,1 @@
+{"compilerOptions":{"lib":["deno.ns","dom","esnext"]},"nodeModulesDir":"manual","imports":{"@noble/hashes/sha256":"npm:@noble/hashes@1.8.0/sha256"},"lock":"../../deno.lock"}
