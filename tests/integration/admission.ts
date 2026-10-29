@@ -1,9 +1,139 @@
-import assert from'node:assert/strict';import{fixture}from'./fixture';import{handler}from'../../supabase/functions/api/handler';import{mock,stable}from'../../packages/contracts/core';import{manualPrompt,manualSubmit}from'../../supabase/functions/_shared/execution';
-const f=await fixture();const paper=await f.write('paper_create',{title:'100 upload fixture'});const files=Array.from({length:100},(_,i)=>({paper_id:paper.id,client_id:String(i),bytes:100,sha256:String(i).padStart(64,'0')}));const assets=await f.write('asset_batch_reserve',{files});assert.equal(assets.length,100);await assert.rejects(f.write('asset_batch_reserve',{files:[...files,files[0]]}),/BATCH_FILE_COUNT/);await assert.rejects(f.write('asset_batch_reserve',{files:[{...files[0],bytes:41943041}]}),/SOURCE_FILE_SIZE/);assert.equal((await f.db.query<{n:number}>('select sum(bytes)::integer n from lab.assets')).rows[0].n,10000);
-const limit=32*1024*1024;assert.equal((await f.db.query<{n:number}>("select file_size_limit::integer n from storage.buckets where id='prepared'")).rows[0].n,limit);for(const bytes of [8*1024*1024+1,limit]){const asset=await f.write('asset_reserve',{paper_id:paper.id,kind:'prepared',bytes,sha256:'a'.repeat(64)});assert.equal(asset.bytes,bytes)}await assert.rejects(f.write('asset_reserve',{paper_id:paper.id,kind:'prepared',bytes:limit+1,sha256:'a'.repeat(64)}),/assets_check/);
-const cross=crypto.randomUUID();await f.db.query('insert into lab.workspaces(id,name) values($1,$2)',[cross,'Other workspace']);await assert.rejects(f.call('lab_read',{w:cross,a:f.a,kind:'papers',args:{}}),/FORBIDDEN/);await assert.rejects(f.call('lab_asset',{w:cross,a:f.a,asset_id:assets[0].id}),/FORBIDDEN/);
-await f.db.query("update lab.workspaces set settings=settings||'{\"access_mode\":\"public\"}'::jsonb where id=$1",[f.w]);
-await f.db.query("insert into lab.members(workspace_id,id,id_email,role) values($1,$2,'public@lab.invalid','researcher')",[f.w,crypto.randomUUID()]);
-const rt=f.rt;
-for(const origin of [undefined,'https://any-site.invalid']){const response=await handler(new Request('https://fixture.supabase.co/functions/v1/api/v1/me',{headers:origin?{Origin:origin}:{}}),rt);assert.equal(response.status,200);assert.equal(response.headers.get('access-control-allow-origin'),'*');const {data}=await response.json();assert.equal(data.access,'public');assert.ok(!JSON.stringify(data).includes('fixture.invalid'))}
-const revision=await f.revision();const plan=await f.write('plan_create',{name:'manual correction fixture',k:1,repeats:1,cohort:'pilot',transport:'manual_web',revision_ids:[revision]});await f.write('plan_control',{id:plan.id,status:'running'});const job=(await f.db.query("select id from lab.jobs where plan_id=$1 and stage='generate' limit 1",[plan.id])).rows[0] as any;const prompt=await manualPrompt(f.rt,f.w,f.a,job.id);await assert.rejects(manualSubmit(f.rt,f.w,f.a,prompt.attempt_id,{raw:'malformed original'}));const parsed=await manualSubmit(f.rt,f.w,f.a,prompt.attempt_id,{raw:'malformed original',human_corrected:true,corrected_json:mock('generate',1)});assert.ok(parsed.ideas);const contexts=await f.db.query('select response_hash,metadata from lab.attempts where job_id=$1 order by attempt_no',[job.id]);assert.equal(contexts.rows.length,2);assert.equal((contexts.rows[1]as any).metadata.human_corrected,true);assert.notEqual((contexts.rows[0]as any).response_hash,(contexts.rows[1]as any).response_hash);assert.equal(f.networkCalls(),0);console.log('PASS 100 atomic upload reservations / boundaries, cross-workspace IDOR, public credential-free access/CORS, preserved manual correction with no model call');await f.db.close();
+import assert from "node:assert/strict";
+import { fixture } from "./fixture";
+import { handler } from "../../supabase/functions/api/handler";
+import { mock, stable } from "../../packages/contracts/core";
+import {
+  manualPrompt,
+  manualSubmit,
+} from "../../supabase/functions/_shared/execution";
+const f = await fixture();
+const paper = await f.write("paper_create", { title: "100 upload fixture" });
+const files = Array.from({ length: 100 }, (_, i) => ({
+  paper_id: paper.id,
+  client_id: String(i),
+  bytes: 100,
+  sha256: String(i).padStart(64, "0"),
+}));
+const assets = await f.write("asset_batch_reserve", { files });
+assert.equal(assets.length, 100);
+await assert.rejects(
+  f.write("asset_batch_reserve", { files: [...files, files[0]] }),
+  /BATCH_FILE_COUNT/,
+);
+await assert.rejects(
+  f.write("asset_batch_reserve", { files: [{ ...files[0], bytes: 41943041 }] }),
+  /SOURCE_FILE_SIZE/,
+);
+assert.equal(
+  (
+    await f.db.query<{ n: number }>(
+      "select sum(bytes)::integer n from lab.assets",
+    )
+  ).rows[0].n,
+  10000,
+);
+const limit = 32 * 1024 * 1024;
+assert.equal(
+  (
+    await f.db.query<{ n: number }>(
+      "select file_size_limit::integer n from storage.buckets where id='prepared'",
+    )
+  ).rows[0].n,
+  limit,
+);
+for (const bytes of [8 * 1024 * 1024 + 1, limit]) {
+  const asset = await f.write("asset_reserve", {
+    paper_id: paper.id,
+    kind: "prepared",
+    bytes,
+    sha256: "a".repeat(64),
+  });
+  assert.equal(asset.bytes, bytes);
+}
+await assert.rejects(
+  f.write("asset_reserve", {
+    paper_id: paper.id,
+    kind: "prepared",
+    bytes: limit + 1,
+    sha256: "a".repeat(64),
+  }),
+  /assets_check/,
+);
+const cross = crypto.randomUUID();
+await f.db.query("insert into lab.workspaces(id,name) values($1,$2)", [
+  cross,
+  "Other workspace",
+]);
+await assert.rejects(
+  f.call("lab_read", { w: cross, a: f.a, kind: "papers", args: {} }),
+  /FORBIDDEN/,
+);
+await assert.rejects(
+  f.call("lab_asset", { w: cross, a: f.a, asset_id: assets[0].id }),
+  /FORBIDDEN/,
+);
+await f.db.query(
+  'update lab.workspaces set settings=settings||\'{"access_mode":"public"}\'::jsonb where id=$1',
+  [f.w],
+);
+await f.db.query(
+  "insert into lab.members(workspace_id,id,id_email,role) values($1,$2,'public@lab.invalid','researcher')",
+  [f.w, crypto.randomUUID()],
+);
+const rt = f.rt;
+for (const origin of [undefined, "https://any-site.invalid"]) {
+  const response = await handler(
+    new Request("https://fixture.supabase.co/functions/v1/api/v1/me", {
+      headers: origin ? { Origin: origin } : {},
+    }),
+    rt,
+  );
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("access-control-allow-origin"), "*");
+  const { data } = await response.json();
+  assert.equal(data.access, "public");
+  assert.ok(!JSON.stringify(data).includes("fixture.invalid"));
+}
+const revision = await f.revision();
+const plan = await f.write("plan_create", {
+  name: "manual correction fixture",
+  k: 1,
+  repeats: 1,
+  cohort: "pilot",
+  transport: "manual_web",
+  revision_ids: [revision],
+});
+await f.write("plan_control", { id: plan.id, status: "running" });
+const job = (
+  await f.db.query(
+    "select id from lab.jobs where plan_id=$1 and stage='generate' limit 1",
+    [plan.id],
+  )
+).rows[0] as any;
+const prompt = await manualPrompt(f.rt, f.w, f.a, job.id);
+await assert.rejects(
+  manualSubmit(f.rt, f.w, f.a, prompt.attempt_id, {
+    raw: "malformed original",
+  }),
+);
+const parsed = await manualSubmit(f.rt, f.w, f.a, prompt.attempt_id, {
+  raw: "malformed original",
+  human_corrected: true,
+  corrected_json: mock("generate", 1),
+});
+assert.ok(parsed.ideas);
+const contexts = await f.db.query(
+  "select response_hash,metadata from lab.attempts where job_id=$1 order by attempt_no",
+  [job.id],
+);
+assert.equal(contexts.rows.length, 2);
+assert.equal((contexts.rows[1] as any).metadata.human_corrected, true);
+assert.notEqual(
+  (contexts.rows[0] as any).response_hash,
+  (contexts.rows[1] as any).response_hash,
+);
+assert.equal(f.networkCalls(), 0);
+console.log(
+  "PASS 100 atomic upload reservations / boundaries, cross-workspace IDOR, public credential-free access/CORS, preserved manual correction with no model call",
+);
+await f.db.close();
