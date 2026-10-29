@@ -10,3 +10,5 @@ playwright-report/
 
 apps/web/__pdf.html
 .cloud-before.json
+
+/tests/fixtures/pdf-canary.pdf

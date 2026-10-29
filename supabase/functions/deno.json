@@ -1,1 +1,15 @@
-{"compilerOptions":{"lib":["deno.ns","dom","esnext"]},"nodeModulesDir":"manual","imports":{"@noble/hashes/sha256":"npm:@noble/hashes@1.8.0/sha256"},"lock":"../../deno.lock"}
+{
+  "compilerOptions": {
+    "lib": [
+      "deno.ns",
+      "dom",
+      "esnext"
+    ]
+  },
+  "nodeModulesDir": "manual",
+  "imports": {
+    "@noble/hashes/sha256": "npm:@noble/hashes@1.8.0/sha256",
+    "pdf-lib": "npm:pdf-lib@1.17.1"
+  },
+  "lock": "../../deno.lock"
+}
