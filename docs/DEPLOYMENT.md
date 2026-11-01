@@ -1,3 +1,5 @@
+> 과거 버전 기록입니다. 3.5의 현재 구현·운영은 [IMPLEMENTATION_20261029.md](IMPLEMENTATION_20261029.md)와 [DEPLOYMENT_3_5.md](DEPLOYMENT_3_5.md)를 우선합니다.
+
 # 현재 배포 · 공동 API 3.2
 
 Cloudflare Pages Free + Supabase Free. 사이트 https://tisiif-math-research-lab.pages.dev, production branch free/v3-from-scratch, build `npm ci --ignore-scripts && npm run build`, output apps/web/dist, Node 24.

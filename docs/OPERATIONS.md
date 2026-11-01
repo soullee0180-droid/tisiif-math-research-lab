@@ -1,3 +1,5 @@
+> 과거 버전 기록입니다. 3.5의 현재 구현·운영은 [IMPLEMENTATION_20261029.md](IMPLEMENTATION_20261029.md)와 [DEPLOYMENT_3_5.md](DEPLOYMENT_3_5.md)를 우선합니다.
+
 # 공개판 운영 변경
 
 현재 공개판은 `02_PUBLIC_ACCESS.md`와 `DEPLOYMENT.md`를 따릅니다. 아래의 개인별 로그인·초대·관리자 UI 절차는 이전 비공개판의 역사적 기록입니다. 공개판에는 해당 UI가 없으며, 서버 운영은 Supabase 관리 도구를 사용합니다. 개인 신원별 검토를 공용 actor로 대신하지 않습니다.

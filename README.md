@@ -1,13 +1,22 @@
-# TISIIF Math Research Lab · 3.2
+# TISIIF Research Lab · 3.5
 
-사이트: https://tisiif-math-research-lab.pages.dev
+공개 공동 연구 공간: https://tisiif-math-research-lab.pages.dev
 
-로그인 없이 사용하는 공개 공동 연구 공간입니다. 논문·분기점·수동/모의/API 실험을 관리합니다. Google 계정이나 초대가 필요하지 않습니다. 모든 방문자가 자료와 공동 API 키의 실행 권한을 공유합니다.
+논문·분기점, 기존 수학 아이디어 실험, ML 실험설계 네 과제(생성·판별·앵커링·심사 검토), 수동/모의/API 실행과 독립 Excel 채점을 지원한다. 로그인은 없으며 등록 자료와 변경 내용은 공개된다. API 키 원문은 저장 후 표시하지 않는다.
 
-**API·프롬프트**에서 키·예산 → 모델 등록 → 4단계 실제 검증 → 모델 사용을 설정하고 실험 계획을 시작합니다. 기본 API 스위치는 OFF, 예산은 $0이며 키 원문은 저장 후 표시하지 않습니다. 모델 검증은 실제 요청 4회와 승인 입력을 사용합니다. 세 제공사의 검증 모델이 준비되어야 정식 비교 실험을 만들 수 있습니다. PDF는 별도 검증이 필요합니다.
+API 설정 순서: 공동 키·예산 → 모델 프로필 → 기본 텍스트 예제 → 실행 전 점검 → 네 단계 검증 → 모델 사용. PDF는 별도 네 단계 검증이 필요하다. 단일 제공사 시험이 가능하며 기존 아이디어 실험의 상호 채점은 두 제공사 이상에서 수행한다. 모든 유료 호출에는 앱 예산과 공개 화면에서 올릴 수 없는 서버 상한이 적용된다.
 
-생성·선택·유용성·일치도별 추가 지시를 편집할 수 있고, 실험별 설정이 불변 snapshot으로 저장됩니다. 서버 cron이 자동 실행하므로 브라우저를 닫아도 진행됩니다. 키가 없는 상태에서는 실제 호출이 발생하지 않습니다.
+- 변경 사항과 검토 항목 대응: [IMPLEMENTATION_20261029.md](docs/IMPLEMENTATION_20261029.md)
+- 신규 migration과 적용 순서: [DEPLOYMENT_3_5.md](docs/DEPLOYMENT_3_5.md)
+- 검증 기록: [TEST_REPORT_3_5.md](docs/TEST_REPORT_3_5.md)
 
-최신 명세 [03_SHARED_API.md](03_SHARED_API.md)가 이전 [02_PUBLIC_ACCESS.md](02_PUBLIC_ACCESS.md)의 API 차단 조건을 대체합니다. 무료 인프라 목표는 $0이며 실제 모델 요금은 제공사 계정에서 별도로 청구됩니다.
+```sh
+npm ci
+npm run check
+npm test
+npm run test:integration
+npm run build
+npm run bundle:edge
+```
 
-검수: npm run check / npm test / npm run test:sql / node --import tsx tests/integration/shared-api.ts / npm run build / npm run bundle:edge. 배포는 docs/DEPLOYMENT.md, 실제 적용 이력은 docs/DEPLOYMENT_LEDGER.json을 참고하세요. 기존 DB를 reset하거나 전체 migration을 재적용하지 않습니다.
+API 통합 테스트는 합성 입력·모의 HTTP를 사용한다. 실제 키의 성공 검증은 별도 opt-in 유료 시험이다. 전체 데이터 복구에는 DB·Storage 백업이 필요하며 연구 결과 ZIP을 전체 백업으로 취급하지 않는다. 기존 운영 DB를 reset하거나 이전 migration을 재적용하지 않는다.

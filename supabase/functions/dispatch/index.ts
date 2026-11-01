@@ -1,1 +1,18 @@
-import{runtime}from'../_shared/runtime.ts';import{internalAuth,signed}from'../_shared/internal-auth.ts';import{providers}from'../../../packages/contracts/core.ts';const rt=runtime();Deno.serve(async req=>{try{const body=await req.text();await internalAuth(rt,req,body);await rt.rpc('lab_recover',{});const base=rt.env('SUPABASE_URL')!;for(const provider of providers){const claim=await rt.rpc('lab_claim',{provider_name:provider});if(!claim)continue;const path='/functions/v1/execute',data=JSON.stringify({attempt_id:claim.attempt_id});await rt.fetch(base+path,{method:'POST',headers:await signed(rt,path,data),body:data,signal:AbortSignal.timeout(5000)})}return Response.json({ok:true})}catch{return Response.json({error:'DISPATCH_REJECTED'},{status:403})}});
+import { runtime } from "../_shared/runtime.ts";
+import { internalAuth } from "../_shared/internal-auth.ts";
+import { dispatch } from "../_shared/dispatch.ts";
+const rt = runtime();
+Deno.serve(async (req) => {
+  try {
+    const body = await req.text();
+    await internalAuth(rt, req, body);
+  } catch {
+    return Response.json({ error: "DISPATCH_REJECTED" }, { status: 403 });
+  }
+  try {
+    const result = await dispatch(rt);
+    return Response.json(result, { status: result.ok ? 200 : 207 });
+  } catch {
+    return Response.json({ error: "DISPATCH_FAILED" }, { status: 500 });
+  }
+});

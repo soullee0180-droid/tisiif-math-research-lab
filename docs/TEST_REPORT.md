@@ -1,3 +1,5 @@
+> 과거 버전 기록입니다. 3.5의 현재 구현·운영은 [IMPLEMENTATION_20261029.md](IMPLEMENTATION_20261029.md)와 [DEPLOYMENT_3_5.md](DEPLOYMENT_3_5.md)를 우선합니다.
+
 # 공개 API·최소 입력 3.2 검수
 
 - TypeScript, 단위 33개, SQL, 36-job/72-raw pipeline, shared API integration, production build PASS. 논문 metadata와 reference_location 없이도 fixture를 승인해 전체 실행했다.

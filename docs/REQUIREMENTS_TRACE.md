@@ -1,3 +1,5 @@
+> 과거 버전 기록입니다. 3.5의 현재 구현·운영은 [IMPLEMENTATION_20261029.md](IMPLEMENTATION_20261029.md)와 [DEPLOYMENT_3_5.md](DEPLOYMENT_3_5.md)를 우선합니다.
+
 # 공개판 우선 요구
 
 최신 사용자 요청은 `02_PUBLIC_ACCESS.md`입니다. 아래의 원본 master에서 Google 로그인·초대·역할 UI·3계정 검수 항목은 폐기되었습니다. 현재 구현은 로그인 없는 공용 편집이며 개인별 권한/검토자 UI를 제공하지 않습니다.

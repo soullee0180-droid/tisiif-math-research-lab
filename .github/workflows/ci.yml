@@ -26,12 +26,15 @@ jobs:
       - run: npm ci --ignore-scripts
       - run: npm run check
       - run: npm test
+      - run: npm run format:check
       - run: npm run test:sql
       - run: node --import tsx tests/integration/pipeline.ts
       - run: node --import tsx tests/integration/admission.ts
       - run: node --import tsx tests/integration/public-access.ts
       - run: node --import tsx tests/integration/shared-api.ts
       - run: node --import tsx tests/integration/provider-files.ts
+      - run: node --import tsx tests/integration/reliability.ts
+      - run: node --import tsx tests/integration/research.ts
       - run: python tests/integration/postgres_concurrency.py
         env:
           TEST_PG_CONTAINER: ${{ job.services.postgres.id }}

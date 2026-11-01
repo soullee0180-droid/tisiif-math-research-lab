@@ -1,6 +1,42 @@
-import {PGlite} from '@electric-sql/pglite';
-import fs from 'node:fs/promises';
-export async function database(){const db=new PGlite();await db.exec(`create role anon;create role authenticated;create role service_role bypassrls;create schema storage;create table storage.buckets(id text primary key,name text,public boolean,file_size_limit bigint);create schema extensions;create function extensions.digest(text,text) returns bytea language sql immutable as 'select sha256(convert_to($1,''UTF8''))';`);
- for(const file of (await fs.readdir('supabase/migrations')).sort()){if(file.includes('scheduler'))continue;const sql=(await fs.readFile('supabase/migrations/'+file,'utf8')).replace('create extension if not exists pgcrypto with schema extensions;','');try{await db.exec(sql)}catch(e:any){const p=Number(e.position||0);console.error(file,e.message,'line',sql.slice(0,p).split('\n').length,sql.slice(Math.max(0,p-120),p+120));throw new Error('MIGRATION_FAILED')}}
- return db}
-export function rpc(db:PGlite){return async(name:string,args:Record<string,any>)=>{if(!/^lab_[a-z_]+$/.test(name))throw Error('RPC_NAME');const keys=Object.keys(args);const r=await db.query(`select public.${name}(${keys.map((k,i)=>k+'=> $'+(i+1)).join(',')}) result`,Object.values(args));return(r.rows[0] as any)?.result}}
+import { PGlite } from "@electric-sql/pglite";
+import fs from "node:fs/promises";
+export async function database() {
+  const db = new PGlite();
+  await db.exec(
+    `create role anon;create role authenticated;create role service_role bypassrls;create schema storage;create table storage.buckets(id text primary key,name text,public boolean,file_size_limit bigint);create schema extensions;create function extensions.digest(text,text) returns bytea language sql immutable as 'select sha256(convert_to($1,''UTF8''))';`,
+  );
+  for (const file of (await fs.readdir("supabase/migrations")).sort()) {
+    if (file.includes("scheduler")) continue;
+    const sql = (
+      await fs.readFile("supabase/migrations/" + file, "utf8")
+    ).replace(
+      "create extension if not exists pgcrypto with schema extensions;",
+      "",
+    );
+    try {
+      await db.exec(sql);
+    } catch (e: any) {
+      const p = Number(e.position || 0);
+      console.error(
+        file,
+        e.message,
+        "line",
+        sql.slice(0, p).split("\n").length,
+        sql.slice(Math.max(0, p - 120), p + 120),
+      );
+      throw new Error("MIGRATION_FAILED");
+    }
+  }
+  return db;
+}
+export function rpc(db: PGlite) {
+  return async (name: string, args: Record<string, any>) => {
+    if (!/^lab_[a-z_]+$/.test(name)) throw Error("RPC_NAME");
+    const keys = Object.keys(args);
+    const r = await db.query(
+      `select public.${name}(${keys.map((k, i) => k + "=> $" + (i + 1)).join(",")}) result`,
+      Object.values(args),
+    );
+    return (r.rows[0] as any)?.result;
+  };
+}

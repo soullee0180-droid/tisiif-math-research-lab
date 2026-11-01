@@ -1,8 +1,71 @@
-export const url=import.meta.env.VITE_SUPABASE_URL||'';export const publicKey=import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY||'';
-let revision=0;const listeners=new Set<()=>void>();export function changed(){revision++;listeners.forEach(l=>l())}export const subscribe=(l:()=>void)=>{listeners.add(l);return()=>{listeners.delete(l)}};export const version=()=>revision;
-const pending=new Map<string,string>();
-export async function api(path:string,p?:any){if(!url)throw Error('배포 환경 설정이 필요합니다.');const fingerprint=path+JSON.stringify(p);let key=pending.get(fingerprint);if(p!==undefined&&!key){key=crypto.randomUUID();pending.set(fingerprint,key!)}const response=await fetch(url+'/functions/v1/api/v1/'+path,{method:p===undefined?'GET':'POST',credentials:'omit',headers:{...(publicKey?{apikey:publicKey}:{}),...(p===undefined?{}:{'Content-Type':'application/json','Idempotency-Key':key!})},body:p===undefined?undefined:JSON.stringify(p)});const body=await response.json();if(!response.ok){pending.delete(fingerprint);throw Error(body.error?.message||'요청을 완료하지 못했습니다.')}pending.delete(fingerprint);if(p!==undefined)changed();return body.data}
-export const read=(kind:string,args:Record<string,any>={})=>api('read/'+kind+'?'+new URLSearchParams(Object.fromEntries(Object.entries(args).filter(([,v])=>v!==undefined&&v!==null&&v!=='').map(([k,v])=>[k,String(v)]))));
-export const write=(action:string,p:any)=>api('write/'+action,p);
-export function navigate(path:string){history.pushState(null,'',path);window.dispatchEvent(new PopStateEvent('popstate'));window.scrollTo(0,0)}
-export const kst=(v:any)=>v?new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',dateStyle:'short',timeStyle:'short'}).format(new Date(v))+' KST':'—';
+export const url = import.meta.env.VITE_SUPABASE_URL || "";
+export const publicKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || "";
+let revision = 0;
+const listeners = new Set<() => void>();
+export function changed() {
+  revision++;
+  listeners.forEach((l) => l());
+}
+export const subscribe = (l: () => void) => {
+  listeners.add(l);
+  return () => {
+    listeners.delete(l);
+  };
+};
+export const version = () => revision;
+const pending = new Map<string, string>();
+export async function api(path: string, p?: any) {
+  if (!url) throw Error("배포 환경 설정이 필요합니다.");
+  const fingerprint = path + JSON.stringify(p);
+  let key = pending.get(fingerprint);
+  if (p !== undefined && !key) {
+    key = crypto.randomUUID();
+    pending.set(fingerprint, key!);
+  }
+  const response = await fetch(url + "/functions/v1/api/v1/" + path, {
+    method: p === undefined ? "GET" : "POST",
+    credentials: "omit",
+    headers: {
+      ...(publicKey ? { apikey: publicKey } : {}),
+      ...(p === undefined
+        ? {}
+        : { "Content-Type": "application/json", "Idempotency-Key": key! }),
+    },
+    body: p === undefined ? undefined : JSON.stringify(p),
+  });
+  const body = await response.json();
+  if (!response.ok) {
+    pending.delete(fingerprint);
+    throw Error(body.error?.message || "요청을 완료하지 못했습니다.");
+  }
+  pending.delete(fingerprint);
+  if (p !== undefined) changed();
+  return body.data;
+}
+export const read = (kind: string, args: Record<string, any> = {}) =>
+  api(
+    "read/" +
+      kind +
+      "?" +
+      new URLSearchParams(
+        Object.fromEntries(
+          Object.entries(args)
+            .filter(([, v]) => v !== undefined && v !== null && v !== "")
+            .map(([k, v]) => [k, String(v)]),
+        ),
+      ),
+  );
+export const write = (action: string, p: any) => api("write/" + action, p);
+export function navigate(path: string) {
+  history.pushState(null, "", path);
+  window.dispatchEvent(new PopStateEvent("popstate"));
+  window.scrollTo(0, 0);
+}
+export const kst = (v: any) =>
+  v
+    ? new Intl.DateTimeFormat("ko-KR", {
+        timeZone: "Asia/Seoul",
+        dateStyle: "short",
+        timeStyle: "short",
+      }).format(new Date(v)) + " KST"
+    : "—";
