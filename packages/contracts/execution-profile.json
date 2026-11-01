@@ -1,0 +1,45 @@
+{
+  "version": "supabase-free-edge-v1",
+  "durable_queue": "PostgreSQL jobs + dispatch_outbox",
+  "cron_seconds": 60,
+  "empty_tick": "SQL only, no Edge invocation",
+  "claim": "atomic per-provider quota reservation + FOR UPDATE SKIP LOCKED, fair across plans and members",
+  "lease_seconds": 90,
+  "heartbeat_seconds": 15,
+  "request_timeout_seconds": 100,
+  "execution_deadline_seconds": 120,
+  "internal_auth": "server-only scheduler credential/signature; publishable key alone never sufficient",
+  "attempt_milestones": [
+    "claimed",
+    "request_prepared",
+    "send_started",
+    "response_stored",
+    "parsed"
+  ],
+  "job_states": [
+    "queued",
+    "claimed",
+    "running",
+    "waiting_rate",
+    "blocked",
+    "unknown_remote",
+    "parse_failed",
+    "succeeded",
+    "failed",
+    "cancelled"
+  ],
+  "state_note": "attempt milestones are distinct from job statuses; map them explicitly in SQL checks and UI",
+  "recovery": {
+    "never_sent": "safe requeue under transaction",
+    "send_started_without_durable_response": "unknown_remote, no automatic inference resend",
+    "response_stored": "reparse stored response only",
+    "terminal": "no new remote request"
+  },
+  "lock_order": [
+    "provider runtime",
+    "quota reservations",
+    "plan/job"
+  ],
+  "idempotency": "unique logical job, immutable request hash, dispatch nonce/outbox deduplication, guarded finalization",
+  "uncertainty": "No claim of exactly-once remote billing; durable sends cannot be atomically committed with provider network operations"
+}

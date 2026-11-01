@@ -1,0 +1,192 @@
+{
+  "project": "bugnhvehtrsgehgnhlvm",
+  "migrations": [
+    {
+      "version": "20261024020759",
+      "name": "initial_research_contract"
+    },
+    {
+      "version": "20261024033509",
+      "name": "render_runtime"
+    },
+    {
+      "version": "20261024101109",
+      "name": "checkpoint_title_and_archive_parts"
+    },
+    {
+      "version": "20261024203828",
+      "name": "v3_free_schema"
+    },
+    {
+      "version": "20261024230029",
+      "name": "v3_free_api_read"
+    },
+    {
+      "version": "20261024232006",
+      "name": "v3_write_papers"
+    },
+    {
+      "version": "20261024232015",
+      "name": "v3_write_assets"
+    },
+    {
+      "version": "20261024232023",
+      "name": "v3_write_plans"
+    },
+    {
+      "version": "20261024232051",
+      "name": "v3_write_admin"
+    },
+    {
+      "version": "20261024232100",
+      "name": "v3_write_research"
+    },
+    {
+      "version": "20261024232109",
+      "name": "v3_write_wrapper"
+    },
+    {
+      "version": "20261024232159",
+      "name": "v3_queue_1"
+    },
+    {
+      "version": "20261024232208",
+      "name": "v3_queue_2"
+    },
+    {
+      "version": "20261024232220",
+      "name": "v3_queue_3"
+    },
+    {
+      "version": "20261024232230",
+      "name": "v3_research_1"
+    },
+    {
+      "version": "20261024232240",
+      "name": "v3_research_2"
+    },
+    {
+      "version": "20261024232623",
+      "name": "v3_free_admission"
+    },
+    {
+      "version": "20261024232631",
+      "name": "v3_free_capability_probe"
+    },
+    {
+      "version": "20261024232639",
+      "name": "v3_free_provider_files"
+    },
+    {
+      "version": "20261024232824",
+      "name": "v3_scheduler_extensions"
+    },
+    {
+      "version": "20261024233221",
+      "name": "v3_scheduler_tick"
+    },
+    {
+      "version": "20261024233243",
+      "name": "v3_scheduler_install"
+    },
+    {
+      "version": "20261025003737",
+      "name": "public_access_without_login"
+    },
+    {
+      "version": "20261025004148",
+      "name": "safe_usage_singleton_update"
+    },
+    {
+      "version": "20261025011337",
+      "name": "public_shared_api_and_stage_prompts"
+    },
+    {
+      "version": "20261025011417",
+      "name": "shared_api_scheduler_vault_setup"
+    },
+    {
+      "version": "20261025105051",
+      "name": "minimal_paper_input"
+    }
+  ],
+  "edge_functions": {
+    "api": 6,
+    "dispatch": 4,
+    "execute": 4
+  },
+  "defaults": {
+    "api_enabled": false,
+    "scheduler_enabled": true,
+    "provider_budget_usd": 0
+  },
+  "remaining": [
+    "actual provider calls require user-entered keys, positive provider budgets, exact model IDs/prices and capability probes",
+    "actual TUS upload verification",
+    "closed-browser cron job execution; cron installed/active and signed live dispatch HTTP 200 verified"
+  ],
+  "security_advisors": [
+    {
+      "name": "rls_enabled_no_policy",
+      "level": "INFO",
+      "count": 46,
+      "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy"
+    }
+  ],
+  "cloudflare_auth": {
+    "cloud_browser_status": "BLOCKED_403",
+    "pc_browser_status": "SIGNED_IN_AND_PAGES_DEPLOYED",
+    "application_auth": "REMOVED"
+  },
+  "previous_verified_source_commit": "d246ab3a62f5f734c8ea2ee733ced304dcb9f805",
+  "previous_verified_ci_run": 40142289144,
+  "public_source_commit": "21bb701688ae24e4a7edea54d9fbecaebe14d921",
+  "public_ci_run": 40147864591,
+  "access": "public_no_login",
+  "public_cloud_verification": {
+    "me_without_auth": 200,
+    "papers_without_auth": 200,
+    "settings_without_auth": 403,
+    "cors": "*",
+    "direct_anon_rpc": "denied",
+    "old_google_identity_function": "removed",
+    "actual_model_calls": 0,
+    "paper_create_without_auth": 200,
+    "mock_step_without_auth": 200,
+    "synthetic_http_smoke_paper": "removed after verification; audit retained"
+  },
+  "public_ci_conclusion": "success",
+  "pages": {
+    "url": "https://tisiif-math-research-lab.pages.dev",
+    "project": "tisiif-math-research-lab",
+    "production_branch": "free/v3-from-scratch",
+    "verified_source_commit": "315a9aae14a0ac194f18ed78bfd50ea08a82f572",
+    "deployment": "7b64d487-3d71-4585-9f18-3b5a316ff7de",
+    "verified_without_login": [
+      "papers",
+      "experiments",
+      "queue",
+      "results",
+      "refresh",
+      "API settings",
+      "PDF registration requires only file",
+      "metadata details collapsed",
+      "minimal revision editor",
+      "four stage prompt tabs"
+    ]
+  },
+  "shared_api_source_commit": "315a9aae14a0ac194f18ed78bfd50ea08a82f572",
+  "shared_api_ci_run": 40186527443,
+  "shared_api_ci_conclusion": "success",
+  "shared_api_cloud_verification": {
+    "public_api_config": 200,
+    "signed_dispatch_via_public_api": 200,
+    "scheduler_installed": true,
+    "scheduler_active": true,
+    "cron": "* * * * *",
+    "registered_provider_keys": 0,
+    "actual_provider_calls_this_verification": 0,
+    "reference_location_optional": true,
+    "plaintext_key_readback": false
+  }
+}

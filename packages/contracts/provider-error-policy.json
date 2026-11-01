@@ -1,0 +1,69 @@
+{
+  "version": "3.0-free",
+  "http_status_alone_is_not_diagnosis": true,
+  "sdk_auto_retries": 0,
+  "classes": {
+    "credential_blocked": {
+      "job_status": "blocked",
+      "provider_block": true,
+      "automatic_retry": false
+    },
+    "payment_blocked": {
+      "job_status": "blocked",
+      "provider_block": true,
+      "automatic_retry": false
+    },
+    "permission_blocked": {
+      "job_status": "blocked",
+      "provider_block": true,
+      "automatic_retry": false
+    },
+    "rate_transient": {
+      "job_status": "waiting_rate",
+      "provider_block": false,
+      "automatic_retry": "bounded; official retry first"
+    },
+    "quota_daily": {
+      "job_status": "waiting_rate",
+      "provider_block": false,
+      "automatic_retry": "verified reset only; otherwise review"
+    },
+    "spend_blocked": {
+      "job_status": "blocked",
+      "provider_block": true,
+      "automatic_retry": false
+    },
+    "quota_unknown": {
+      "job_status": "blocked",
+      "provider_block": true,
+      "automatic_retry": false
+    },
+    "input_size": {
+      "job_status": "failed",
+      "provider_block": false,
+      "automatic_retry": false
+    },
+    "model_or_input": {
+      "job_status": "failed",
+      "provider_block": false,
+      "automatic_retry": false
+    },
+    "remote_unknown": {
+      "job_status": "unknown_remote",
+      "provider_block": false,
+      "automatic_retry": false
+    }
+  },
+  "provider_state_storage": "lab_private.provider_runtime blocked_reason/paused_until/metadata",
+  "attempt_details": "http_status/error_class/error_detail without credentials",
+  "new_job_status_values": [],
+  "safe_retry_schedule_seconds": [
+    10,
+    30,
+    90
+  ],
+  "raw_response_before_parse": true,
+  "retry_preserves_snapshot": true,
+  "max_provider_request_seconds": 100,
+  "maximum_execution_seconds": 120
+}
