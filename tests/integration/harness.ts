@@ -1,12 +1,15 @@
 import { PGlite } from "@electric-sql/pglite";
 import fs from "node:fs/promises";
-export async function database() {
+export async function database(
+  beforeMigration?: (db: PGlite, file: string) => Promise<void>,
+) {
   const db = new PGlite();
   await db.exec(
     `create role anon;create role authenticated;create role service_role bypassrls;create schema storage;create table storage.buckets(id text primary key,name text,public boolean,file_size_limit bigint);create schema extensions;create function extensions.digest(text,text) returns bytea language sql immutable as 'select sha256(convert_to($1,''UTF8''))';`,
   );
   for (const file of (await fs.readdir("supabase/migrations")).sort()) {
     if (file.includes("scheduler")) continue;
+    await beforeMigration?.(db, file);
     const sql = (
       await fs.readFile("supabase/migrations/" + file, "utf8")
     ).replace(

@@ -76,6 +76,7 @@ begin
  when 'plan_control' then
  select * into pl from lab.plans where workspace_id=w and id=(p->>'id')::uuid for update;if not found or(pl.created_by<>a and m.role<>'admin') then raise exception 'FORBIDDEN_PLAN_OWNER';end if;
  if p->>'status' not in('paused','running','cancelled') or pl.status in('cancelled','complete') then raise exception 'PLAN_STATE';end if;
+ if p->>'status'='running' and pl.protocol#>>'{execution_bundle,version}' is distinct from 'execution-v5' then raise exception 'LEGACY_PLAN_RECREATE_REQUIRED';end if;
  update lab.plans set status=p->>'status' where id=pl.id;v=jsonb_build_object('id',pl.id,'status',p->>'status');
  else raise exception 'WRITE_ACTION_INVALID';end case;
  return jsonb_build_object('result',v,'resource_id',rid);

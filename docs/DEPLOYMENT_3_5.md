@@ -6,6 +6,7 @@
 2. **새 migration 두 개만** 순서대로 적용한다.
    - `20261029010000_reliability.sql`
    - `20261029020000_research_tasks.sql`
+   - 기존 계획의 고정 설정과 hash는 수정하지 않는다. 이전 실행 버전의 계획은 일시정지 상태로 보존하고, 새 실행에는 새 계획을 만든다. 기존 계획 재시작은 `LEGACY_PLAN_RECREATE_REQUIRED`로 차단한다.
 3. `api`, `execute`, `dispatch` Edge 함수를 같은 커밋에서 배포한다. 기존 `verify_jwt=false` 및 내부 HMAC/Vault 구성을 유지한다. `supabase/functions/deno.json`의 pdf-lib import도 포함한다.
 4. 같은 커밋의 Vite 프런트엔드를 Pages에 배포한다. Git 자동배포가 연결된 경우 migration/Edge가 준비되기 전에 프런트엔드만 운영에 나가지 않도록 배포 순서를 관리한다.
 5. 공개 화면의 서버 예산 상한을 확인한다. migration은 이미 저장된 제공사별 예산을 최초 상한으로 고정한다. 새 환경/미등록 제공사의 기본 상한은 0이다. 인가된 DB 관리자만 아래 값을 정할 수 있다.
