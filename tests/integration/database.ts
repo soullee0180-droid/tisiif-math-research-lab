@@ -1,7 +1,33 @@
 import assert from "node:assert/strict";
 import { database, rpc } from "./harness";
 import protocol from "../../packages/contracts/research-protocol.json";
-const db = await database();
+const legacyWorkspace = crypto.randomUUID(),
+  legacyPlan = crypto.randomUUID();
+const legacyProtocol = { version: 4, stage_prompts: { generate: "Original" } };
+const db = await database(async (db, file) => {
+  if (file !== "20261029010000_reliability.sql") return;
+  await db.query(
+    "insert into lab.workspaces(id,name) values($1,'Legacy fixture')",
+    [legacyWorkspace],
+  );
+  await db.query(
+    "insert into lab.plans(id,workspace_id,created_by,name,k,repeats,cohort,transport,status,protocol,condition_hash) values($1,$2,$3,'Legacy plan',1,1,'pilot','api','running',$4,'legacy-hash')",
+    [legacyPlan, legacyWorkspace, crypto.randomUUID(), legacyProtocol],
+  );
+});
+const legacy = (
+  await db.query<any>(
+    "select protocol,condition_hash,status from lab.plans where id=$1",
+    [legacyPlan],
+  )
+).rows[0];
+assert.deepEqual(legacy.protocol, legacyProtocol);
+assert.equal(legacy.condition_hash, "legacy-hash");
+assert.equal(legacy.status, "paused");
+await assert.rejects(
+  db.query("update lab.plans set protocol='{}' where id=$1", [legacyPlan]),
+  /IMMUTABLE_PLAN_SNAPSHOT/,
+);
 const call = rpc(db);
 const w = crypto.randomUUID(),
   a = crypto.randomUUID(),
@@ -24,6 +50,20 @@ await db.query(
 );
 const write = (action: string, p: any, actor = a, key = crypto.randomUUID()) =>
   call("lab_write", { w, a: actor, action, p, idem: key });
+await db.query(
+  "insert into lab.members(workspace_id,id,id_email,role) values($1,$2,'legacy@fixture.invalid','admin')",
+  [legacyWorkspace, a],
+);
+await assert.rejects(
+  call("lab_write", {
+    w: legacyWorkspace,
+    a,
+    action: "plan_control",
+    p: { id: legacyPlan, status: "running" },
+    idem: crypto.randomUUID(),
+  }),
+  /LEGACY_PLAN_RECREATE_REQUIRED/,
+);
 const paper = await write("paper_create", { title: "Synthetic test paper" });
 const cp = await write("checkpoint_create", {
   paper_id: paper.id,
