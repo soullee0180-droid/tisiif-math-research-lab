@@ -67,7 +67,7 @@ export async function handler(req: Request, rt: Runtime) {
       return Response.json(
         {
           ok: true,
-          version: "3.2.0",
+          version: "3.5.0",
           access: "public",
           real_api_default: false,
         },
